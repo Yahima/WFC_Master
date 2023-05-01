@@ -2,6 +2,7 @@
 using System.IO;
 using UnityEngine;
 using System.Linq;
+using System;
 
 // Generates Sprites and adjacency rules from a sample
 public class SampleManager2D
@@ -9,26 +10,41 @@ public class SampleManager2D
     public Dictionary<string, Sprite> sprites;
     public Dictionary<string, Dictionary<Direction, List<string>>> rules;
 
-    private readonly string path;
+    private Dictionary<Direction, List<string>> adjacents;
+
+    private readonly string samplePath;
+    private readonly string xmlFilePath;
     private readonly int tileSize;
     private readonly FilterMode filterMode;
     private readonly Texture2D sourceTexture;
 
-    public SampleManager2D(string path, int tileSize, FilterMode filterMode)
+    public SampleManager2D(string samplePath, string xmlFilePath, int tileSize, FilterMode filterMode)
     {
-        this.path = path;
+        this.samplePath = samplePath;
+        this.xmlFilePath = xmlFilePath;
         this.tileSize = tileSize;
         this.filterMode = filterMode;
 
         sprites = new Dictionary<string, Sprite>();
         rules = new Dictionary<string, Dictionary<Direction, List<string>>>();
-        sourceTexture = LoadSourceTexture();
-        GenerateFromSource();
+
+        if (File.Exists(this.xmlFilePath))
+        {
+            sourceTexture = LoadSourceTexture();
+            GenerateFromSource(false);
+            LoadXML(this.xmlFilePath);
+        }
+        else
+        {
+            sourceTexture = LoadSourceTexture();
+            GenerateFromSource(true);
+            SaveToXML(this.xmlFilePath);
+        }
     }
 
     private Texture2D LoadSourceTexture()
     {
-        byte[] bytes = File.ReadAllBytes(path);
+        byte[] bytes = File.ReadAllBytes(samplePath);
 
         Texture2D sourceTexture = new(1, 1);
         sourceTexture.LoadImage(bytes);
@@ -36,7 +52,7 @@ public class SampleManager2D
         return sourceTexture;
     }
 
-    private void GenerateFromSource()
+    private void GenerateFromSource(bool generateRules)
     {
         for (int i = 0; i < sourceTexture.width; i += tileSize)
         {
@@ -44,7 +60,6 @@ public class SampleManager2D
             {
                 Texture2D blockTexture = new(tileSize, tileSize);
                 Color[] pixelColors = sourceTexture.GetPixels(i, j, tileSize, tileSize);
-                List<Color> tileColors = pixelColors.Distinct().ToList();
 
                 blockTexture.SetPixels(pixelColors);
                 blockTexture.filterMode = filterMode;
@@ -55,7 +70,11 @@ public class SampleManager2D
                 {
                     Sprite sprite = Sprite.Create(blockTexture, new Rect(0.0f, 0.0f, blockTexture.width, blockTexture.height), new Vector2(0.5f, 0.5f));
                     sprites[blockHash] = sprite;
-                    rules.Add(blockHash, GetValidAdjacencies(blockTexture));
+
+                    if (generateRules == true)
+                    {
+                        rules.Add(blockHash, GetValidAdjacencies(blockTexture));
+                    }
                 }
             }
         }
@@ -64,7 +83,7 @@ public class SampleManager2D
     // TODO: Create function for repeated code
     private Dictionary<Direction, List<string>> GetValidAdjacencies(Texture2D texture)
     {
-        Dictionary<Direction, List<string>> adjacents = new()
+        adjacents = new()
         {
             { Direction.North, new List<string>() },
             { Direction.East, new List<string>() },
@@ -77,52 +96,22 @@ public class SampleManager2D
             for (int j = 0; j < sourceTexture.height; j += tileSize)
             {
                 Texture2D blockTexture = new(tileSize, tileSize);
-                Texture2D adjacentTexture = new(tileSize, tileSize);
                 blockTexture.SetPixels(sourceTexture.GetPixels(i, j, tileSize, tileSize));
                 string blockHash = GetTextureHash(blockTexture);
 
                 if (blockHash == GetTextureHash(texture))
                 {
-
                     if (j < sourceTexture.height - tileSize) // North
-                    {
-                        adjacentTexture = new(tileSize, tileSize);
-                        adjacentTexture.SetPixels(sourceTexture.GetPixels(i, j + tileSize, tileSize, tileSize));
-                        string adjacentHash = GetTextureHash(adjacentTexture);
-
-                        if (!adjacents[Direction.North].Contains(adjacentHash))
-                            adjacents[Direction.North].Add(adjacentHash);
-                    }
+                        AddAdjacent(i, j + tileSize, Direction.North);
 
                     if (i < sourceTexture.width - tileSize) // East
-                    {
-                        adjacentTexture = new(tileSize, tileSize);
-                        adjacentTexture.SetPixels(sourceTexture.GetPixels(i + tileSize, j, tileSize, tileSize));
-                        string adjacentHash = GetTextureHash(adjacentTexture);
-
-                        if (!adjacents[Direction.East].Contains(adjacentHash))
-                            adjacents[Direction.East].Add(adjacentHash);
-                    }
+                        AddAdjacent(i + tileSize, j, Direction.East);
 
                     if (j > 0) // South
-                    {
-                        adjacentTexture = new(tileSize, tileSize);
-                        adjacentTexture.SetPixels(sourceTexture.GetPixels(i, j - tileSize, tileSize, tileSize));
-                        string adjacentHash = GetTextureHash(adjacentTexture);
-
-                        if (!adjacents[Direction.South].Contains(adjacentHash))
-                            adjacents[Direction.South].Add(adjacentHash);
-                    }
+                        AddAdjacent(i, j - tileSize, Direction.South);
 
                     if (i > 0) // West
-                    {
-                        adjacentTexture = new(tileSize, tileSize);
-                        adjacentTexture.SetPixels(sourceTexture.GetPixels(i - tileSize, j, tileSize, tileSize));
-                        string adjacentHash = GetTextureHash(adjacentTexture);
-
-                        if (!adjacents[Direction.West].Contains(adjacentHash))
-                            adjacents[Direction.West].Add(adjacentHash);
-                    }
+                        AddAdjacent(i - tileSize, j, Direction.West);
                 }
             }
         }
@@ -130,12 +119,31 @@ public class SampleManager2D
         return adjacents;
     }
 
-    // TODO: Texture.imageContentsHash
+    private void AddAdjacent(int x, int y, Direction dir)
+    {
+        Texture2D adjacentTexture = new(tileSize, tileSize);
+        adjacentTexture.SetPixels(sourceTexture.GetPixels(x, y, tileSize, tileSize));
+        string adjacentHash = GetTextureHash(adjacentTexture);
+
+        if (!adjacents[dir].Contains(adjacentHash))
+            adjacents[dir].Add(adjacentHash);
+    }
+
     private string GetTextureHash(Texture2D texture)
     {
-        byte[] bytes = texture.EncodeToPNG();
-        string hash = System.Convert.ToBase64String(bytes);
-        return hash;
+        return texture.imageContentsHash.ToString();
+    }
+
+    private void SaveToXML(string xmlFilePath)
+    {
+        XmlDictionaryManager saver = new(xmlFilePath);
+        saver.Save(rules);
+    }
+
+    private void LoadXML(string xmlFilePath)
+    {
+        XmlDictionaryManager loader = new(xmlFilePath);
+        Dictionary<string, Dictionary<Direction, List<string>>> loadedRules = loader.Load();
+        rules = loadedRules;
     }
 }
-

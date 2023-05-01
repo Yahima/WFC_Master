@@ -13,7 +13,7 @@ public class Tile2D
     public Tile2D(RectTransform container, Vector2 position, Vector2 size, List<string> types, int x, int y)
     {
         collapsed = false;
-        this.validTypes = types;
+        validTypes = types;
         gridPosition = new Vector2Int(x, y);
 
         gameObject = new GameObject(x + ":" + y);

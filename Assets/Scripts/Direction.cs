@@ -1,5 +1,4 @@
-﻿using System;
-public enum Direction
+﻿public enum Direction
 {
     North,
     East,

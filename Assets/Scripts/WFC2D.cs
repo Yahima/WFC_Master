@@ -6,38 +6,34 @@ using System.Linq;
 
 public class WFC2D : MonoBehaviour
 {
-    public string path;
+    public string path, xmlPath;
     public int tileSize;
     public int cols, rows;
 
     private RectTransform container;
 
-    private Tile2D[,] tiles;
-    private Tile2D[,] newTiles;
-
-    private List<string> types;
+    private SamplesManager sampleManager;
     private Dictionary<string, Sprite> sprites;
+    private Dictionary<string, Dictionary<Direction, List<string>>> rules;
+    private List<string> types;
+
+    private Tile2D[,] tiles2D;
+    private Tile2D[,] newTiles2D;
 
     private List<Vector2Int> lowEntropyList;
-
     private List<(Vector2Int, string)> steps;
-    SampleManager2D sampleManager;
-    private Dictionary<string, Dictionary<Direction, List<string>>> rules;
 
     // Use this for initialization
     void Start()
     {
-        sampleManager = new SampleManager2D(path, tileSize, FilterMode.Point);
         container = GetComponent<RectTransform>();
+        sampleManager = new SamplesManager(path, xmlPath, tileSize, FilterMode.Point);
 
-        tiles = new Tile2D[cols, rows];
-        newTiles = new Tile2D[cols, rows];
+        tiles2D = new Tile2D[cols, rows];
+        newTiles2D = new Tile2D[cols, rows];
 
         sprites = sampleManager.sprites;
-
-        types = new List<string>();
-        foreach (var kvp in sprites)
-            types.Add(kvp.Key);
+        types = sampleManager.types;
 
         lowEntropyList = new List<Vector2Int>();
 
@@ -58,25 +54,26 @@ public class WFC2D : MonoBehaviour
             if (lowEntropyList.Count <= 0)
                 return;
 
-            Vector2Int index = lowEntropyList[0];
+            //Vector2Int index = lowEntropyList[0];
+            System.Random random = new();
+            int index = random.Next(0, lowEntropyList.Count);
+            Vector2Int cell = lowEntropyList[index];
 
-            if (tiles[index.x, index.y].validTypes.Count > 0)
+            if (tiles2D[cell.x, cell.y].validTypes.Count > 0)
             {
-                tiles[index.x, index.y].Collapse();
-                steps.Add(new(index, tiles[index.x, index.y].type));
+                tiles2D[cell.x, cell.y].Collapse();
+                steps.Add(new(cell, tiles2D[cell.x, cell.y].type));
             }
 
             else
-                while (!tiles[steps[^1].Item1.x, steps[^1].Item1.y].CollapseOther(steps[^1].Item2) && steps.Count > 0)
+                while (!tiles2D[steps[^1].Item1.x, steps[^1].Item1.y].CollapseOther(steps[^1].Item2) && steps.Count > 0)
                     steps.RemoveAt(steps.Count - 1);
-
 
             UpdateValids();
 
-            foreach (var tile in tiles)
+            foreach (var tile in tiles2D)
                 if (tile.collapsed && tile.gameObject.GetComponent<Image>().sprite == null)
                     tile.gameObject.GetComponent<Image>().sprite = sprites[tile.type];
-
         }
     }
 
@@ -92,8 +89,7 @@ public class WFC2D : MonoBehaviour
             for (int j = 0; j < rows; j++)
             {
                 Vector2 position = new Vector2(i, -j) * cellSize + offSet;
-
-                tiles[i, j] = new Tile2D(container, position, tileSize, types, i, j);
+                tiles2D[i, j] = new Tile2D(container, position, tileSize, types, i, j);
             }
         }
     }
@@ -110,7 +106,7 @@ public class WFC2D : MonoBehaviour
         int lowest = int.MaxValue;
         lowEntropyList.Clear();
 
-        foreach (var tile in tiles)
+        foreach (var tile in tiles2D)
         {
             if ((tile.collapsed == true) || (tile.validTypes.Count > lowest))
                 continue;
@@ -130,16 +126,16 @@ public class WFC2D : MonoBehaviour
     // Updates the validTypes for each Tile, by observing its adjacent Tiles
     private void UpdateValids()
     {
-        Array.Copy(tiles, newTiles, tiles.Length);
+        Array.Copy(tiles2D, newTiles2D, tiles2D.Length);
         List<string> tmpValidTypes = new();
 
-        foreach (var tile in tiles)
+        foreach (var tile in tiles2D)
         {
             int x = tile.gridPosition.x;
             int y = tile.gridPosition.y;
 
             if (tile.collapsed)
-                newTiles[x, y] = tile;
+                newTiles2D[x, y] = tile;
 
             else
             {
@@ -148,8 +144,8 @@ public class WFC2D : MonoBehaviour
                 if (x > 0)
                 {
                     tmpValidTypes.Clear();
-                    if (tiles[x - 1, y].collapsed)
-                        tmpValidTypes.AddRange(GetValidsForDirection(tiles[x - 1, y].type, Direction.East));
+                    if (tiles2D[x - 1, y].collapsed)
+                        tmpValidTypes.AddRange(GetValidsForDirection(tiles2D[x - 1, y].type, Direction.East));
                     else
                         tmpValidTypes = validTypes;
 
@@ -160,8 +156,8 @@ public class WFC2D : MonoBehaviour
                 if (x < cols - 1)
                 {
                     tmpValidTypes.Clear();
-                    if (tiles[x + 1, y].collapsed)
-                        tmpValidTypes.AddRange(GetValidsForDirection(tiles[x + 1, y].type, Direction.West));
+                    if (tiles2D[x + 1, y].collapsed)
+                        tmpValidTypes.AddRange(GetValidsForDirection(tiles2D[x + 1, y].type, Direction.West));
                     else
                         tmpValidTypes = validTypes;
 
@@ -169,12 +165,12 @@ public class WFC2D : MonoBehaviour
                     validTypes = validTypes.Intersect(tmpValidTypes).ToList();
                 }
 
-                newTiles[x, y].validTypes = validTypes;
+                newTiles2D[x, y].validTypes = validTypes;
                 if (y > 0)
                 {
                     tmpValidTypes.Clear();
-                    if (tiles[x, y - 1].collapsed)
-                        tmpValidTypes.AddRange(GetValidsForDirection(tiles[x, y - 1].type, Direction.South));
+                    if (tiles2D[x, y - 1].collapsed)
+                        tmpValidTypes.AddRange(GetValidsForDirection(tiles2D[x, y - 1].type, Direction.South));
                     else
                         tmpValidTypes = validTypes;
 
@@ -185,8 +181,8 @@ public class WFC2D : MonoBehaviour
                 if (y < rows - 1)
                 {
                     tmpValidTypes.Clear();
-                    if (tiles[x, y + 1].collapsed)
-                        tmpValidTypes.AddRange(GetValidsForDirection(tiles[x, y + 1].type, Direction.North));
+                    if (tiles2D[x, y + 1].collapsed)
+                        tmpValidTypes.AddRange(GetValidsForDirection(tiles2D[x, y + 1].type, Direction.North));
                     else
                         tmpValidTypes = validTypes;
 
@@ -194,20 +190,26 @@ public class WFC2D : MonoBehaviour
                     validTypes = validTypes.Intersect(tmpValidTypes).ToList();
                 }
 
-                newTiles[x, y].validTypes = validTypes;
+                newTiles2D[x, y].validTypes = validTypes;
             }
         }
 
-        tiles = newTiles;
+        tiles2D = newTiles2D;
     }
 
     // Returns true if all Tiles are collapsed
     private bool CheckFullyCollapsed()
     {
-        foreach (var tile in tiles)
+        foreach (var tile in tiles2D)
             if (!tile.collapsed)
                 return false;
 
         return true;
+    }
+
+    public void Restart()
+    {
+        foreach (var tile in tiles2D)
+            tile.ResetTile();
     }
 }

@@ -1,11 +1,13 @@
 ﻿public class Tile
 {
     public string name;
-    public string type;
+    public int value;
+    public int weight;
 
-    public Tile(string name, string type)
+    public Tile(string name, int value, int weight)
     {
         this.name = name;
-        this.type = type;
+        this.value = value;
+        this.weight = weight;
     }
 }

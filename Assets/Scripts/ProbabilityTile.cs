@@ -11,10 +11,13 @@ public class ProbabilityTile
     public List<Tile> tiles;
     public Vector2Int gridPosition;
     public GameObject gameObject;
+    public bool visited = false;
 
+    
     private readonly int probability;
+    private readonly int cellValue;
 
-    public ProbabilityTile(RectTransform container, Vector2 position, Vector2 size, List<string> types, List<Tile> tileTypes, int x, int y, int probability)
+    public ProbabilityTile(RectTransform container, Vector2 position, Vector2 size, List<string> types, List<Tile> tileTypes, int x, int y, int probability, int cellValue)
     {
         collapsed = false;
         validTypes = types;
@@ -32,6 +35,7 @@ public class ProbabilityTile
         gameObject.AddComponent<Image>();
 
         this.probability = probability;
+        this.cellValue = cellValue;
     }
 
     public void Collapse()
@@ -41,11 +45,11 @@ public class ProbabilityTile
         collapsed = true;
     }
 
-    public void CollapseTo(string value)
+    public void CollapseToValue()
     {
         foreach (Tile tile in tiles)
         {
-            if (tile.type == value)
+            if (tile.value == cellValue)
             {
                 type = tile.name;
                 collapsed = true;
@@ -54,11 +58,19 @@ public class ProbabilityTile
         }
     }
 
-    public void WeightedCollapse(string value)
+    public void CollapseToType(string type)
+    {
+        ResetTile();
+        this.type = type;
+        collapsed = true;
+    }
+
+    public void WeightedCollapse()
     {
         List<Tile> filteredTileList = tiles.Where(tile => validTypes.Contains(tile.name)).ToList();
-        type = GetTypeByProbability(filteredTileList, value);
+        type = GetTypeByProbability(filteredTileList);
         collapsed = true;
+        visited = true;
     }
 
     public bool CollapseOther(string type)
@@ -73,8 +85,9 @@ public class ProbabilityTile
             System.Random random = new();
             this.type = newTypes[random.Next(0, newTypes.Count)];
             collapsed = true;
+            
         }
-
+        Debug.Log(collapsed);
         return collapsed;
     }
 
@@ -82,21 +95,54 @@ public class ProbabilityTile
     {
         collapsed = false;
         gameObject.GetComponent<Image>().sprite = null;
+        visited = false;
     }
 
-    public string GetTypeByProbability(List<Tile> validTypes, string value)
+    public string GetTypeByProbability(List<Tile> tiles)
     {
         List<string> weightedTypeList = new();
 
-        foreach (var valid in validTypes)
-            if (valid.type == value)
+        foreach (var tile in tiles)
+            if (tile.value == cellValue)
                 for (int i = 0; i < probability; i++)
-                    weightedTypeList.Add(valid.name);
+                    weightedTypeList.Add(tile.name);
+
             else
-                weightedTypeList.Add(valid.name);
+                weightedTypeList.Add(tile.name);
 
         System.Random random = new();
         return weightedTypeList[random.Next(0, weightedTypeList.Count)];
+    }
+
+    public void RemoveType(string type)
+    {
+        validTypes.Remove(type);
+    }
+
+    public float GetEntropy()
+    {
+        float sumWeight = 0;
+        float sumWeightLogWeight = 0;
+        List<Tile> filteredTileList = tiles.Where(tile => validTypes.Contains(tile.name)).ToList();
+
+        if (filteredTileList.Count == 0)
+        {
+            return 0f; // Return 0 entropy for empty list
+        }
+
+        foreach (Tile tile in filteredTileList)
+        {
+            if (tile.value == cellValue)
+            {
+                tile.weight += probability;
+            }
+            sumWeight += tile.weight;
+            sumWeightLogWeight += tile.weight * Mathf.Log(tile.weight);
+        }
+
+        float entropy = Mathf.Log(sumWeight) - (sumWeightLogWeight / sumWeight);
+
+        return entropy;
     }
 }
 

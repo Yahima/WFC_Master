@@ -14,6 +14,7 @@ public class WFCProbabilityLayer : MonoBehaviour
     public TextMeshProUGUI valueText;
     public Toggle valueToggle;
     public int probabilityValue;
+    public string set;
 
     private RectTransform container;
 
@@ -31,7 +32,13 @@ public class WFCProbabilityLayer : MonoBehaviour
 
     private List<Vector2Int> lowEntropyList;
     private List<(Vector2Int, string)> steps;
+    //private List<(ProbabilityTile[,], List<(Vector2Int, string)>)> states;
+    private List<(string, (Vector2Int, string))> history;
 
+    List<string> errorStates;
+    List<string> states;
+    //Stack<Step> steps = new Stack<Step>();
+    //Dictionary<Vector2Int, List<string>> steps = new Dictionary<Vector2Int, List<string>>();
     // Use this for initialization
     void Start()
     {
@@ -56,6 +63,10 @@ public class WFCProbabilityLayer : MonoBehaviour
 
         lowEntropyList = new List<Vector2Int>();
         steps = new List<(Vector2Int, string)>();
+        history = new List<(string, (Vector2Int, string))>();
+
+        states = new List<string>();
+        errorStates = new List<string>();
 
         CreateGrid();
         UpdateValids();
@@ -66,35 +77,62 @@ public class WFCProbabilityLayer : MonoBehaviour
     {
         if (CheckFullyCollapsed() == false)
         {
+            states.Add(CurrentState());
             UpdateEntropy();
 
+
+
             if (lowEntropyList.Count <= 0)
+            {
                 return;
+            }
 
             System.Random random = new();
             int index = random.Next(0, lowEntropyList.Count);
-            Vector2Int cell = lowEntropyList[index];
+            Vector2Int cell = lowEntropyList[0];
 
             if (probTiles[cell.x, cell.y].validTypes.Count > 0)
             {
-                string value = Enum.GetName(typeof(Biome), values[cell.x, cell.y]);
-                probTiles[cell.x, cell.y].WeightedCollapse(value);
-
-                steps.Add(new(cell, probTiles[cell.x, cell.y].type));
+                probTiles[cell.x, cell.y].WeightedCollapse();
+              
             }
-
             else
+            {
                 while (!probTiles[steps[^1].Item1.x, steps[^1].Item1.y].CollapseOther(steps[^1].Item2) && steps.Count > 0)
                     steps.RemoveAt(steps.Count - 1);
+            }
 
 
             UpdateValids();
-
+            
             foreach (var tile in probTiles)
                 if (tile.collapsed && tile.gameObject.GetComponent<Image>().sprite == null)
                     tile.gameObject.GetComponent<Image>().sprite = sprites[tile.type];
+
         }
+
+        else
+        {
+            
+        }
+
+        int oneCount = 0;
+
+        for (int i = 0; i < cols; i++)
+        {
+            for (int j = 0; j < rows; j++)
+            {
+                if (probTiles[i, j].collapsed)
+                {
+                    oneCount++;
+                }
+            }
+        }
+
+        float percentage = ((float)oneCount / (cols*rows)) * 100f;
+        Debug.Log(percentage);
     }
+
 
     private void ValueToggleValueChanged(Toggle toggle)
     {
@@ -122,13 +160,21 @@ public class WFCProbabilityLayer : MonoBehaviour
             {
                 Vector2 position = new Vector2(i, -j) * cellSize + offSet;
 
-                probTiles[i, j] = new ProbabilityTile(container, position, tileSize, types, tiles, i, j, probabilityValue);
+                probTiles[i, j] = new ProbabilityTile(container, position, tileSize, types, tiles, i, j, probabilityValue, values[i, j]);
 
                 valuesText[i, j] = Instantiate(valueText, container);
                 valuesText[i, j].rectTransform.anchoredPosition = position;
                 valuesText[i, j].rectTransform.sizeDelta = new Vector2(cellSize, cellSize);
 
                 valuesText[i, j].SetText(values[i, j].ToString());
+
+            }
+        }
+        for (int i = 0; i < cols; i++)
+        {
+            for (int j = 0; j < rows; j++)
+            {
+                valuesText[i, j].text = values[i, j].ToString();
             }
         }
 
@@ -140,13 +186,15 @@ public class WFCProbabilityLayer : MonoBehaviour
                 {
                     if (values[i, j] == m)
                     {
-                        probTiles[i, j].CollapseTo(Enum.GetName(typeof(Biome), m));
+                        probTiles[i, j].CollapseToValue();
                         goto LoopEnd;
                     }
                 }
             }
         LoopEnd:;
         }
+
+        
     }
 
     private List<string> GetValidsForDirection(string type, Direction dir)
@@ -154,26 +202,71 @@ public class WFCProbabilityLayer : MonoBehaviour
         return rules[type][dir];
     }
 
-    // Updates lowEntropyList with the positions of all Tiles with the lowest entropy (number of valid types)
+    private string CurrentState()
+    {
+        string state = "";
+        string separator = "-";
+        foreach (var tile in probTiles)
+        {
+            if (!tile.collapsed)
+            {
+                state += "x" + separator;
+            }
+            else
+            {
+                state += types.IndexOf(tile.type).ToString() + separator;
+            }
+        }
+        state = state.Remove(state.Length - 1);
+        //Debug.Log(state);
+        return state;
+    }
+
+    private void LoadState(string state)
+    {
+        string[] tileStates = state.Split("-");
+        //Debug.Log(tileStates.Length);
+        int index = 0;
+        foreach (var tile in probTiles)
+        {
+            if(tileStates[index].Equals("x"))
+            {
+                tile.ResetTile();
+            }
+            else
+            {
+                tile.CollapseToType(types[int.Parse(tileStates[index])]);
+            }
+            index++;
+        }
+    }
+
+    // Updates lowEntropyList with the positions of all Tiles with the lowest entropy
     private void UpdateEntropy()
     {
-        int lowest = int.MaxValue;
+        float lowest = float.MaxValue;
         lowEntropyList.Clear();
 
         foreach (var tile in probTiles)
         {
-            if ((tile.collapsed == true) || (tile.validTypes.Count > lowest))
+            if ((tile.collapsed == true) || (tile.GetEntropy() > lowest))
                 continue;
 
-            if (tile.validTypes.Count < lowest)
+            if (tile.GetEntropy() < lowest)
             {
-                lowest = tile.validTypes.Count();
+                lowest = tile.GetEntropy();
                 lowEntropyList.Clear();
                 lowEntropyList.Add(tile.gridPosition);
             }
 
-            else if (tile.validTypes.Count() == lowest)
+            else if (tile.GetEntropy() == lowest)
                 lowEntropyList.Add(tile.gridPosition);
+        }
+        if (lowest == 0)
+        {
+            errorStates.Add(CurrentState());
+
+            return;
         }
     }
 
@@ -349,6 +442,8 @@ public class WFCProbabilityLayer : MonoBehaviour
 
         steps.Clear();
         lowEntropyList.Clear();
+        history.Clear();
+        errorStates.Clear();
 
         CreateGrid();
         UpdateValids();

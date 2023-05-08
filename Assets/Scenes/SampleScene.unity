@@ -542,18 +542,6 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1866082790}
-        m_TargetAssemblyTypeName: WFCProbabilityLayer, Assembly-CSharp
-        m_MethodName: Restart
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
       - m_Target: {fileID: 1206150355}
         m_TargetAssemblyTypeName: WFCProbabilityLayer, Assembly-CSharp
         m_MethodName: Restart
@@ -701,7 +689,7 @@ GameObject:
   - component: {fileID: 1206150356}
   - component: {fileID: 1206150355}
   m_Layer: 5
-  m_Name: Panel Prob (1)
+  m_Name: Panel Prob
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -739,16 +727,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1f238a551bb024e358d48b48e519f040, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  samplesPath: Samples/SamplesBiome
+  samplesPath: Samples/ESW
   xmlFilePath: Assets/Resources/Samples/SamplesBiome/biomes.xml
   tileSize: 16
-  cols: 30
-  rows: 30
+  cols: 20
+  rows: 20
   minValue: 1
-  maxValue: 6
+  maxValue: 3
   valueText: {fileID: 1233856385}
   valueToggle: {fileID: 1980029814}
   probabilityValue: 100
+  set: 
 --- !u!114 &1206150356
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -876,7 +865,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: eab6b51ab65ef4e54aa233500e9d0fd6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  path: Samples/SamplesBiome
+  path: Samples/ESW
   xmlPath: Assets/Resources/Samples/SamplesBiome/biomes.xml
   tileSize: 16
   cols: 35
@@ -1338,12 +1327,12 @@ GameObject:
   - component: {fileID: 1866082791}
   - component: {fileID: 1866082790}
   m_Layer: 5
-  m_Name: Panel Prob
+  m_Name: Panel Prob Comp
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1866082789
 RectTransform:
   m_ObjectHideFlags: 0
@@ -1371,7 +1360,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1866082788}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1f238a551bb024e358d48b48e519f040, type: 3}
   m_Name: 
@@ -1385,7 +1374,8 @@ MonoBehaviour:
   maxValue: 6
   valueText: {fileID: 1233856385}
   valueToggle: {fileID: 1980029814}
-  probabilityValue: 10
+  probabilityValue: 5
+  set: 
 --- !u!114 &1866082791
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -87,16 +87,28 @@ public class WFCProbabilityLayer : MonoBehaviour
             System.Random random = new();
             int index = random.Next(0, lowEntropyList.Count);
             Vector2Int cell = lowEntropyList[0];
+            bool fertig = false;
 
-            if (probTiles[cell.x, cell.y].validTypes.Count > 0)
+            while (probTiles[cell.x, cell.y].validTypes.Count > 0 && !fertig)
             {
                 probTiles[cell.x, cell.y].WeightedCollapse();
-              
+                if (errorStates.Contains(CurrentState()))// NextState(cell, probTiles[cell.x, cell.y].type)))
+                {
+                    probTiles[cell.x, cell.y].validTypes.Remove(probTiles[cell.x, cell.y].type);
+                } else
+                {
+                    steps.Add(new(cell, probTiles[cell.x, cell.y].type));
+                    fertig = true;
+                }
             }
-            else
+
+            if (!fertig)
             {
-                while (!probTiles[steps[^1].Item1.x, steps[^1].Item1.y].CollapseOther(steps[^1].Item2) && steps.Count > 0)
-                    steps.RemoveAt(steps.Count - 1);
+                //while (!probTiles[steps[^1].Item1.x, steps[^1].Item1.y].CollapseOther(steps[^1].Item2) && steps.Count > 0)
+                probTiles[cell.x, cell.y].ResetTile();
+                errorStates.Add(CurrentState());
+                steps.RemoveAt(steps.Count - 1);
+                probTiles[steps[^1].Item1.x, steps[^1].Item1.y].ResetTile();
             }
 
 
@@ -212,6 +224,29 @@ public class WFCProbabilityLayer : MonoBehaviour
             }
         }
         state = state.Remove(state.Length - 1);
+        return state;
+    }
+
+    private string NextState(Vector2Int cell, string type)
+    {
+        string state = "";
+        string separator = "-";
+        foreach (var tile in probTiles)
+        {
+            if (tile.gridPosition.x == cell.x && tile.gridPosition.y == cell.y)
+            {
+                state += types.IndexOf(type).ToString() + separator;
+            }
+            else if (!tile.collapsed)
+            {
+                state += "x" + separator;
+            }
+            else
+            {
+                state += types.IndexOf(tile.type).ToString() + separator;
+            }
+        }
+        state = state.Remove(state.Length - 1);
         //Debug.Log(state);
         return state;
     }
@@ -255,12 +290,12 @@ public class WFCProbabilityLayer : MonoBehaviour
             else if (tile.GetEntropy() == lowest)
                 lowEntropyList.Add(tile.gridPosition);
         }
-        if (lowest == 0)
-        {
-            errorStates.Add(CurrentState());
+        //if (lowest == 0)
+        //{
+        //    errorStates.Add(CurrentState());
 
-            return;
-        }
+        //    return;
+        //}
     }
 
     // Updates the validTypes for each Tile, by observing its adjacent Tiles

@@ -32,14 +32,11 @@ public class WFCProbabilityLayer : MonoBehaviour
 
     private List<Vector2Int> lowEntropyList;
     private List<(Vector2Int, string)> steps;
-    //private List<(ProbabilityTile[,], List<(Vector2Int, string)>)> states;
     private List<(string, (Vector2Int, string))> history;
 
     List<string> errorStates;
     List<string> states;
-    //Stack<Step> steps = new Stack<Step>();
-    //Dictionary<Vector2Int, List<string>> steps = new Dictionary<Vector2Int, List<string>>();
-    // Use this for initialization
+    
     void Start()
     {
         container = GetComponent<RectTransform>();
@@ -133,7 +130,6 @@ public class WFCProbabilityLayer : MonoBehaviour
         Debug.Log(percentage);
     }
 
-
     private void ValueToggleValueChanged(Toggle toggle)
     {
         if (toggle.isOn)
@@ -193,8 +189,6 @@ public class WFCProbabilityLayer : MonoBehaviour
             }
         LoopEnd:;
         }
-
-        
     }
 
     private List<string> GetValidsForDirection(string type, Direction dir)
@@ -225,7 +219,6 @@ public class WFCProbabilityLayer : MonoBehaviour
     private void LoadState(string state)
     {
         string[] tileStates = state.Split("-");
-        //Debug.Log(tileStates.Length);
         int index = 0;
         foreach (var tile in probTiles)
         {

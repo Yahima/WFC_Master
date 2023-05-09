@@ -737,7 +737,6 @@ MonoBehaviour:
   valueText: {fileID: 1233856385}
   valueToggle: {fileID: 1980029814}
   probabilityValue: 100
-  set: 
 --- !u!114 &1206150356
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -794,7 +793,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1225785029
 RectTransform:
   m_ObjectHideFlags: 0
@@ -860,7 +859,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1225785028}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: eab6b51ab65ef4e54aa233500e9d0fd6, type: 3}
   m_Name: 
@@ -868,8 +867,8 @@ MonoBehaviour:
   path: Samples/ESW
   xmlPath: Assets/Resources/Samples/SamplesBiome/biomes.xml
   tileSize: 16
-  cols: 35
-  rows: 35
+  cols: 20
+  rows: 20
 --- !u!1 &1233856383
 GameObject:
   m_ObjectHideFlags: 0
@@ -1375,7 +1374,6 @@ MonoBehaviour:
   valueText: {fileID: 1233856385}
   valueToggle: {fileID: 1980029814}
   probabilityValue: 5
-  set: 
 --- !u!114 &1866082791
 MonoBehaviour:
   m_ObjectHideFlags: 0

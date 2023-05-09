@@ -16,12 +16,15 @@ public class WFC2D : MonoBehaviour
     private Dictionary<string, Sprite> sprites;
     private Dictionary<string, Dictionary<Direction, List<string>>> rules;
     private List<string> types;
+    private List<Tile> tiles;
 
     private Tile2D[,] tiles2D;
     private Tile2D[,] newTiles2D;
 
     private List<Vector2Int> lowEntropyList;
     private List<(Vector2Int, string)> steps;
+    private List<string> errorStates;
+
 
     // Use this for initialization
     void Start()
@@ -33,12 +36,14 @@ public class WFC2D : MonoBehaviour
         newTiles2D = new Tile2D[cols, rows];
 
         sprites = sampleManager.sprites;
+        rules = sampleManager.rules;
         types = sampleManager.types;
+        tiles = sampleManager.tiles;
 
         lowEntropyList = new List<Vector2Int>();
 
-        rules = sampleManager.rules;
         steps = new List<(Vector2Int, string)>();
+        errorStates = new List<string>();
 
         CreateGrid();
         UpdateValids();
@@ -58,16 +63,39 @@ public class WFC2D : MonoBehaviour
             System.Random random = new();
             int index = random.Next(0, lowEntropyList.Count);
             Vector2Int cell = lowEntropyList[index];
+            bool fertig = false;
 
-            if (tiles2D[cell.x, cell.y].validTypes.Count > 0)
+            while (tiles2D[cell.x, cell.y].validTypes.Count > 0 && !fertig)
             {
                 tiles2D[cell.x, cell.y].Collapse();
-                steps.Add(new(cell, tiles2D[cell.x, cell.y].type));
+
+                if (errorStates.Contains(CurrentState()))
+                {
+                    tiles2D[cell.x, cell.y].validTypes.Remove(tiles2D[cell.x, cell.y].type);
+                }
+
+                else
+                {
+                    steps.Add(new(cell, tiles2D[cell.x, cell.y].type));
+                    fertig = true;
+                }
             }
 
-            else
-                while (!tiles2D[steps[^1].Item1.x, steps[^1].Item1.y].CollapseOther(steps[^1].Item2) && steps.Count > 0)
+            if (!fertig)
+            {
+                tiles2D[cell.x, cell.y].ResetTile();
+                errorStates.Add(CurrentState());
+
+                if (steps.Count == 0)
+                    Restart();
+
+                else
+                {
+                    tiles2D[steps[^1].Item1.x, steps[^1].Item1.y].ResetTile();
                     steps.RemoveAt(steps.Count - 1);
+                }
+            }
+
 
             UpdateValids();
 
@@ -89,7 +117,7 @@ public class WFC2D : MonoBehaviour
             for (int j = 0; j < rows; j++)
             {
                 Vector2 position = new Vector2(i, -j) * cellSize + offSet;
-                tiles2D[i, j] = new Tile2D(container, position, tileSize, types, i, j);
+                tiles2D[i, j] = new Tile2D(container, position, tileSize, types, tiles, i, j);
             }
         }
     }
@@ -211,5 +239,25 @@ public class WFC2D : MonoBehaviour
     {
         foreach (var tile in tiles2D)
             tile.ResetTile();
+
+        steps.Clear();
+        lowEntropyList.Clear();
+        errorStates.Clear();
+    }
+
+    private string CurrentState()
+    {
+        string state = "";
+        string separator = "-";
+        foreach (var tile in tiles2D)
+        {
+            if (!tile.collapsed)
+                state += "x" + separator;
+            else
+                state += types.IndexOf(tile.type).ToString() + separator;
+        }
+
+        state = state.Remove(state.Length - 1);
+        return state;
     }
 }

@@ -11,8 +11,6 @@ public class ProbabilityTile
     public List<Tile> tiles;
     public Vector2Int gridPosition;
     public GameObject gameObject;
-    public bool visited = false;
-
     
     private readonly int probability;
     private readonly int cellValue;
@@ -70,7 +68,6 @@ public class ProbabilityTile
         List<Tile> filteredTileList = tiles.Where(tile => validTypes.Contains(tile.name)).ToList();
         type = GetTypeByProbability(filteredTileList);
         collapsed = true;
-        visited = true;
     }
 
     public bool CollapseOther(string type)
@@ -87,7 +84,7 @@ public class ProbabilityTile
             collapsed = true;
             
         }
-        Debug.Log(collapsed);
+
         return collapsed;
     }
 
@@ -95,7 +92,6 @@ public class ProbabilityTile
     {
         collapsed = false;
         gameObject.GetComponent<Image>().sprite = null;
-        visited = false;
     }
 
     public string GetTypeByProbability(List<Tile> tiles)
@@ -126,22 +122,16 @@ public class ProbabilityTile
         List<Tile> filteredTileList = tiles.Where(tile => validTypes.Contains(tile.name)).ToList();
 
         if (filteredTileList.Count == 0)
-        {
-            return 0f; // Return 0 entropy for empty list
-        }
+            return 0f;
 
         foreach (Tile tile in filteredTileList)
         {
-            if (tile.value == cellValue)
-            {
-                tile.weight += probability;
-            }
             sumWeight += tile.weight;
             sumWeightLogWeight += tile.weight * Mathf.Log(tile.weight);
         }
 
         float entropy = Mathf.Log(sumWeight) - (sumWeightLogWeight / sumWeight);
-
+        
         return entropy;
     }
 }

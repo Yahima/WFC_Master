@@ -86,11 +86,11 @@ public class SamplesManager
                 }
             }
         }
-        //foreach (var tile in tiles)
-        //{
-        //    Debug.Log(tile.value + " : " + tile.weight);
-        //}
-        //Debug.Log(rules.Count);
+        foreach (var tile in tiles)
+        {
+            Debug.Log(tile.value + " : " + tile.weight);
+        }
+        Debug.Log(rules.Count);
     }
 
     private void GetAdjacentTilesFromSample(Texture2D sampleTexture, string tileHash)

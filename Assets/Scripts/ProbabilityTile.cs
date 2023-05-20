@@ -8,10 +8,11 @@ public class ProbabilityTile
     public bool collapsed;
     public string type;
     public List<string> validTypes;
+    public List<string> removedTypes;
     public List<Tile> tiles;
     public Vector2Int gridPosition;
     public GameObject gameObject;
-    
+
     private readonly int probability;
     private readonly int cellValue;
 
@@ -19,6 +20,7 @@ public class ProbabilityTile
     {
         collapsed = false;
         validTypes = types;
+        removedTypes = new List<string>();
         tiles = tileTypes;
         gridPosition = new Vector2Int(x, y);
 
@@ -82,7 +84,7 @@ public class ProbabilityTile
             System.Random random = new();
             this.type = newTypes[random.Next(0, newTypes.Count)];
             collapsed = true;
-            
+
         }
 
         return collapsed;
@@ -100,10 +102,11 @@ public class ProbabilityTile
 
         foreach (var tile in tiles)
             if (tile.value == cellValue)
-                for (int i = 0; i < probability; i++)
+                for (int i = 0; i < tile.weight * probability; i++)
                     weightedTypeList.Add(tile.name);
 
             else
+                //for (int i = 0; i < tile.weight; i++)
                 weightedTypeList.Add(tile.name);
 
         System.Random random = new();
@@ -112,7 +115,7 @@ public class ProbabilityTile
 
     public void RemoveType(string type)
     {
-        validTypes.Remove(type);
+        removedTypes.Add(type);
     }
 
     public float GetEntropy()
@@ -126,12 +129,16 @@ public class ProbabilityTile
 
         foreach (Tile tile in filteredTileList)
         {
+            if (tile.value == cellValue)
+            {
+                tile.weight += probability;
+            }
             sumWeight += tile.weight;
             sumWeightLogWeight += tile.weight * Mathf.Log(tile.weight);
         }
 
         float entropy = Mathf.Log(sumWeight) - (sumWeightLogWeight / sumWeight);
-        
+
         return entropy;
     }
 }

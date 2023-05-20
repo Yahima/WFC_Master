@@ -32,7 +32,7 @@ public class WFCProbabilityLayer : MonoBehaviour
     private List<Vector2Int> lowEntropyList;
     private List<(Vector2Int, string)> steps;
     private List<string> errorStates;
-    
+    private List<History> history;
     void Start()
     {
         container = GetComponent<RectTransform>();
@@ -58,6 +58,7 @@ public class WFCProbabilityLayer : MonoBehaviour
         steps = new List<(Vector2Int, string)>();
 
         errorStates = new List<string>();
+        history = new List<History>();
 
         CreateGrid();
         UpdateValids();
@@ -75,9 +76,10 @@ public class WFCProbabilityLayer : MonoBehaviour
 
             System.Random random = new();
             int index = random.Next(0, lowEntropyList.Count);
-            Vector2Int cell = lowEntropyList[0];
+            Vector2Int cell = lowEntropyList[index];
 
             bool fertig = false;
+
 
             while (probTiles[cell.x, cell.y].validTypes.Count > 0 && !fertig)
             {
@@ -90,7 +92,7 @@ public class WFCProbabilityLayer : MonoBehaviour
 
                 else
                 {
-                    steps.Add(new(cell, probTiles[cell.x, cell.y].type));
+                    history.Add(new History(CurrentState(), new(cell, probTiles[cell.x, cell.y].type)));
                     fertig = true;
                 }
             }
@@ -100,14 +102,16 @@ public class WFCProbabilityLayer : MonoBehaviour
                 probTiles[cell.x, cell.y].ResetTile();
                 errorStates.Add(CurrentState());
 
-                if (steps.Count == 0)
-                    Restart();
+                List<Vector2Int> cellAdjacents = GetCellAdjacents(cell);
+                History lastCollapsed = history
+                    .Where(history => cellAdjacents.Contains(history.Step.Item1))
+                    .LastOrDefault();
 
-                else
-                {
-                    probTiles[steps[^1].Item1.x, steps[^1].Item1.y].ResetTile();
-                    steps.RemoveAt(steps.Count - 1);
-                }
+                int lastCollapsedIndex = history.IndexOf(lastCollapsed);
+                LoadState(history[lastCollapsedIndex].CurrentState);
+                errorStates.Add(CurrentState());
+                probTiles[history[lastCollapsedIndex].Step.Item1.x, history[lastCollapsedIndex].Step.Item1.y].ResetTile();
+                history.RemoveRange(lastCollapsedIndex + 1, history.Count - lastCollapsedIndex - 1);
             }
 
             UpdateValids();
@@ -171,19 +175,29 @@ public class WFCProbabilityLayer : MonoBehaviour
         return rules[type][dir];
     }
 
-    private void ResetCellAdjacents(Vector2Int cell)
+    private List<Vector2Int> GetCellAdjacents(Vector2Int cell)
     {
+        List<Vector2Int> adjacents = new List<Vector2Int>();
         int x = cell.x;
         int y = cell.y;
 
         if (x > 0)
-            probTiles[x - 1, y].ResetTile();
+            if (probTiles[x - 1, y].collapsed)
+                adjacents.Add(probTiles[x - 1, y].gridPosition);
+
         if (x < cols - 1)
-            probTiles[x + 1, y].ResetTile();
+            if (probTiles[x + 1, y].collapsed)
+                adjacents.Add(probTiles[x + 1, y].gridPosition);
+
         if (y > 0)
-            probTiles[x, y - 1].ResetTile();
-        if(y < rows - 1)
-            probTiles[x, y + 1].ResetTile();
+            if (probTiles[x, y - 1].collapsed)
+                adjacents.Add(probTiles[x, y - 1].gridPosition);
+
+        if (y < rows - 1)
+            if (probTiles[x, y + 1].collapsed)
+                adjacents.Add(probTiles[x, y + 1].gridPosition);
+
+        return adjacents;
     }
 
     private string CurrentState()
@@ -208,7 +222,7 @@ public class WFCProbabilityLayer : MonoBehaviour
         int index = 0;
         foreach (var tile in probTiles)
         {
-            if(tileStates[index].Equals("x"))
+            if (tileStates[index].Equals("x"))
                 tile.ResetTile();
             else
                 tile.CollapseToType(types[int.Parse(tileStates[index])]);

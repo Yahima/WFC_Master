@@ -58,7 +58,7 @@ public class SamplesManager
                         types.Add(tileHash);
 
                         string filename = Path.GetFileNameWithoutExtension(obj.name);
-                        int value = int.Parse(filename.Substring(0, 3));
+                        int value = int.Parse(filename[^3..]);
                         int weight = 1;
 
                         Tile tile = new(tileHash, value, weight);

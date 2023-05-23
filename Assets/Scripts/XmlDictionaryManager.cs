@@ -31,7 +31,7 @@ public class Rule
 
 public class DirectionData
 {
-    public Direction direction;
+    public Dir direction;
 
     public List<string> valids;
 
@@ -40,7 +40,7 @@ public class DirectionData
         valids = new List<string>();
     }
 
-    public DirectionData(Direction direction)
+    public DirectionData(Dir direction)
     {
         this.direction = direction;
         valids = new List<string>();
@@ -56,14 +56,14 @@ public class XmlDictionaryManager
         _filePath = filePath;
     }
 
-    public void Save(Dictionary<string, Dictionary<Direction, List<string>>> dictionary)
+    public void Save(Dictionary<string, Dictionary<Dir, List<string>>> dictionary)
     {
         RulesData data = new();
 
-        foreach (KeyValuePair<string, Dictionary<Direction, List<string>>> rules in dictionary)
+        foreach (KeyValuePair<string, Dictionary<Dir, List<string>>> rules in dictionary)
         {
             Rule rule = new(rules.Key);
-            foreach (KeyValuePair<Direction, List<string>> directionData in rules.Value)
+            foreach (KeyValuePair<Dir, List<string>> directionData in rules.Value)
             {
                 DirectionData direction = new(directionData.Key);
                 direction.valids.AddRange(directionData.Value);
@@ -78,9 +78,9 @@ public class XmlDictionaryManager
         serializer.Serialize(writer, data);
     }
 
-    public Dictionary<string, Dictionary<Direction, List<string>>> Load()
+    public Dictionary<string, Dictionary<Dir, List<string>>> Load()
     {
-        Dictionary<string, Dictionary<Direction, List<string>>> dictionary = new();
+        Dictionary<string, Dictionary<Dir, List<string>>> dictionary = new();
 
         XmlSerializer serializer = new(typeof(RulesData));
         using (StreamReader reader = new(_filePath))
@@ -89,7 +89,7 @@ public class XmlDictionaryManager
 
             foreach (Rule rule in data.rules)
             {
-                Dictionary<Direction, List<string>> directions = new();
+                Dictionary<Dir, List<string>> directions = new();
                 foreach (DirectionData directionData in rule.directions)
                 {
                     directions[directionData.direction] = directionData.valids;

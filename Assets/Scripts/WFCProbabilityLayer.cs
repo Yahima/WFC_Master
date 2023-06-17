@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using TMPro;
 using System.Linq;
-using static UnityEngine.EventSystems.EventTrigger;
 
 public class WFCProbabilityLayer : MonoBehaviour
 {
@@ -36,6 +35,8 @@ public class WFCProbabilityLayer : MonoBehaviour
     private List<History> history;
 
     private int valueDistributionMethod;
+    private bool splatmap = false;
+    private int[,] gridValues;
 
     void Start()
     {
@@ -69,6 +70,7 @@ public class WFCProbabilityLayer : MonoBehaviour
         history = new List<History>();
 
         valueDistributionMethod = dropdown.value;
+        gridValues = new int[cols, rows];
 
         CreateGrid();
         UpdateValids();
@@ -89,7 +91,6 @@ public class WFCProbabilityLayer : MonoBehaviour
             Vector2Int currentCell = lowEntropyList[cellIndex];
 
             bool fertig = false;
-
 
             while (probTiles[currentCell.x, currentCell.y].GetValidTypes().Count > 0 && !fertig)
             {
@@ -147,6 +148,17 @@ public class WFCProbabilityLayer : MonoBehaviour
             foreach (var tile in probTiles)
                 if (tile.IsCollapsed() && tile.ObjectImageIsEmpty())
                     tile.SetObjectImage(sprites[tile.GetTileType()]);
+
+            if (!splatmap)
+            {
+                foreach (ProbabilityTile tile in probTiles)
+                {
+                    int value = data.FirstOrDefault(item => item.name == tile.GetTileType()).value;
+                    gridValues[tile.GetGridPosition().x, tile.GetGridPosition().y] = value;
+                }
+                SplatmapGenerator splatmapGenerator = new SplatmapGenerator(40, gridValues);
+                splatmap = true;
+            }
         }
     }
 
@@ -484,6 +496,8 @@ public class WFCProbabilityLayer : MonoBehaviour
         history.Clear();
         lowEntropyList.Clear();
         errorStates.Clear();
+
+        splatmap = false;
 
         CreateGrid();
         UpdateValids();

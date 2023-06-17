@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System;
 using System.Linq;
 
-public class ClassicWFC3D : MonoBehaviour
+public class WFC3D : MonoBehaviour
 {
     // Grid dimensions
     public int xSize, ySize, zSize;
@@ -23,6 +23,7 @@ public class ClassicWFC3D : MonoBehaviour
 
     // Grid
     private Vector3Int[,,] blocks;
+    private int blockSize = 5;
 
     // Modules
     private Module[,,] modules;
@@ -44,13 +45,18 @@ public class ClassicWFC3D : MonoBehaviour
         blocks = gridManager.CreateGrid();
 
         sampleManager = new SampleManager3D();
-        gameObjects = sampleManager.GetObjects();
+        
 
         moduleTypes = new List<string>();
-        foreach (var item in gameObjects)
+        /*foreach (var item in gameObjects)
+            moduleTypes.Add(item.Key);*/
+
+        rules = sampleManager.GenerateRulesFromSamples();
+        
+        foreach (var item in rules)
             moduleTypes.Add(item.Key);
 
-        rules = sampleManager.GenerateFromSource();
+        gameObjects = sampleManager.GetObjects();
 
         modules = new Module[xSize, ySize, zSize];
         newModules = new Module[xSize, ySize, zSize];
@@ -69,7 +75,7 @@ public class ClassicWFC3D : MonoBehaviour
         steps = new List<(Vector3Int, string)>();
         history = new Dictionary<Vector2Int, int>();
 
-        CollapseEdges();
+       // CollapseEdges();
         UpdateValids();
 
     }
@@ -95,20 +101,20 @@ public class ClassicWFC3D : MonoBehaviour
             }
             else
             {
-                if (steps.Count > 0)
+               /* if (steps.Count > 0)
                 {
                     while (!modules[steps[^1].Item1.x, steps[^1].Item1.y, steps[^1].Item1.z].CollapseOther(steps[^1].Item2))
                     {
                         steps.RemoveAt(steps.Count - 1);
                     }
-                }
+                }*/
             }
 
             UpdateValids();
 
             foreach (var module in modules)
                 if (module.collapsed && module.model == null)
-                    module.SetObject(gameObjects[module.type]);
+                    module.SetObject(gameObjects[module.type[0..^1]]);
         }
     }
 
@@ -281,7 +287,7 @@ public class ClassicWFC3D : MonoBehaviour
 
     private void CollapseEdges()
     {
-        d
+        
         foreach (var block in blocks)
         {
             int x = block.x;

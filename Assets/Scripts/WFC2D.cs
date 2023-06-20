@@ -14,9 +14,9 @@ public class WFC2D : MonoBehaviour
 
     private SamplesManager sampleManager;
     private Dictionary<string, Sprite> sprites;
-    private Dictionary<string, Dictionary<Dir, List<string>>> rules;
+    private Dictionary<string, Dictionary<Direction, List<string>>> rules;
     private List<string> types;
-    private List<TileData> data;
+    private List<Tile> tiles;
 
     private Tile2D[,] tiles2D;
     private Tile2D[,] newTiles2D;
@@ -35,10 +35,10 @@ public class WFC2D : MonoBehaviour
         tiles2D = new Tile2D[cols, rows];
         newTiles2D = new Tile2D[cols, rows];
 
-        sprites = sampleManager.GetSprites();
-        rules = sampleManager.GetRules();
-        types = sampleManager.GetTypes();
-        data = sampleManager.GetTileData();
+        sprites = sampleManager.sprites;
+        rules = sampleManager.rules;
+        types = sampleManager.types;
+        tiles = sampleManager.tiles;
 
         lowEntropyList = new List<Vector2Int>();
 
@@ -65,18 +65,18 @@ public class WFC2D : MonoBehaviour
             Vector2Int cell = lowEntropyList[index];
             bool fertig = false;
 
-            while (tiles2D[cell.x, cell.y].GetValidTypes().Count > 0 && !fertig)
+            while (tiles2D[cell.x, cell.y].validTypes.Count > 0 && !fertig)
             {
                 tiles2D[cell.x, cell.y].Collapse();
 
                 if (errorStates.Contains(CurrentState()))
                 {
-                    tiles2D[cell.x, cell.y].RemoveType(tiles2D[cell.x, cell.y].GetTileType());
+                    tiles2D[cell.x, cell.y].validTypes.Remove(tiles2D[cell.x, cell.y].type);
                 }
 
                 else
                 {
-                    steps.Add(new(cell, tiles2D[cell.x, cell.y].GetTileType()));
+                    steps.Add(new(cell, tiles2D[cell.x, cell.y].type));
                     fertig = true;
                 }
             }
@@ -100,8 +100,8 @@ public class WFC2D : MonoBehaviour
             UpdateValids();
 
             foreach (var tile in tiles2D)
-                if (tile.IsCollapsed() && tile.ObjectImageIsEmpty())
-                    tile.SetObjectImage(sprites[tile.GetTileType()]);
+                if (tile.collapsed && tile.gameObject.GetComponent<Image>().sprite == null)
+                    tile.gameObject.GetComponent<Image>().sprite = sprites[tile.type];
         }
     }
 
@@ -117,13 +117,13 @@ public class WFC2D : MonoBehaviour
             for (int j = 0; j < rows; j++)
             {
                 Vector2 position = new Vector2(i, -j) * cellSize + offSet;
-                tiles2D[i, j] = new Tile2D(container, position, tileSize, types, data, i, j);
+                tiles2D[i, j] = new Tile2D(container, position, tileSize, types, tiles, i, j);
             }
         }
     }
 
     // Returns a list of valid Tile types for a direction
-    private List<string> GetValidsForDirection(string type, Dir dir)
+    private List<string> GetValidsForDirection(string type, Direction dir)
     {
         return rules[type][dir];
     }
@@ -136,18 +136,18 @@ public class WFC2D : MonoBehaviour
 
         foreach (var tile in tiles2D)
         {
-            if ((tile.IsCollapsed()) || (tile.GetValidTypes().Count > lowest))
+            if ((tile.collapsed == true) || (tile.validTypes.Count > lowest))
                 continue;
 
-            if (tile.GetValidTypes().Count < lowest)
+            if (tile.validTypes.Count < lowest)
             {
-                lowest = tile.GetValidTypes().Count;
+                lowest = tile.validTypes.Count();
                 lowEntropyList.Clear();
-                lowEntropyList.Add(tile.GetGridPosition());
+                lowEntropyList.Add(tile.gridPosition);
             }
 
-            else if (tile.GetValidTypes().Count == lowest)
-                lowEntropyList.Add(tile.GetGridPosition());
+            else if (tile.validTypes.Count() == lowest)
+                lowEntropyList.Add(tile.gridPosition);
         }
     }
 
@@ -159,10 +159,10 @@ public class WFC2D : MonoBehaviour
 
         foreach (var tile in tiles2D)
         {
-            int x = tile.GetGridPosition().x;
-            int y = tile.GetGridPosition().y;
+            int x = tile.gridPosition.x;
+            int y = tile.gridPosition.y;
 
-            if (tile.IsCollapsed())
+            if (tile.collapsed)
                 newTiles2D[x, y] = tile;
 
             else
@@ -172,8 +172,8 @@ public class WFC2D : MonoBehaviour
                 if (x > 0)
                 {
                     tmpValidTypes.Clear();
-                    if (tiles2D[x - 1, y].IsCollapsed())
-                        tmpValidTypes.AddRange(GetValidsForDirection(tiles2D[x - 1, y].GetTileType(), Dir.Right));
+                    if (tiles2D[x - 1, y].collapsed)
+                        tmpValidTypes.AddRange(GetValidsForDirection(tiles2D[x - 1, y].type, Direction.East));
                     else
                         tmpValidTypes = validTypes;
 
@@ -184,8 +184,8 @@ public class WFC2D : MonoBehaviour
                 if (x < cols - 1)
                 {
                     tmpValidTypes.Clear();
-                    if (tiles2D[x + 1, y].IsCollapsed())
-                        tmpValidTypes.AddRange(GetValidsForDirection(tiles2D[x + 1, y].GetTileType(), Dir.Left));
+                    if (tiles2D[x + 1, y].collapsed)
+                        tmpValidTypes.AddRange(GetValidsForDirection(tiles2D[x + 1, y].type, Direction.West));
                     else
                         tmpValidTypes = validTypes;
 
@@ -193,11 +193,12 @@ public class WFC2D : MonoBehaviour
                     validTypes = validTypes.Intersect(tmpValidTypes).ToList();
                 }
 
+                newTiles2D[x, y].validTypes = validTypes;
                 if (y > 0)
                 {
                     tmpValidTypes.Clear();
-                    if (tiles2D[x, y - 1].IsCollapsed())
-                        tmpValidTypes.AddRange(GetValidsForDirection(tiles2D[x, y - 1].GetTileType(), Dir.Down));
+                    if (tiles2D[x, y - 1].collapsed)
+                        tmpValidTypes.AddRange(GetValidsForDirection(tiles2D[x, y - 1].type, Direction.South));
                     else
                         tmpValidTypes = validTypes;
 
@@ -208,8 +209,8 @@ public class WFC2D : MonoBehaviour
                 if (y < rows - 1)
                 {
                     tmpValidTypes.Clear();
-                    if (tiles2D[x, y + 1].IsCollapsed())
-                        tmpValidTypes.AddRange(GetValidsForDirection(tiles2D[x, y + 1].GetTileType(), Dir.Up));
+                    if (tiles2D[x, y + 1].collapsed)
+                        tmpValidTypes.AddRange(GetValidsForDirection(tiles2D[x, y + 1].type, Direction.North));
                     else
                         tmpValidTypes = validTypes;
 
@@ -217,7 +218,7 @@ public class WFC2D : MonoBehaviour
                     validTypes = validTypes.Intersect(tmpValidTypes).ToList();
                 }
 
-                newTiles2D[x, y].SetValidTypes(validTypes);
+                newTiles2D[x, y].validTypes = validTypes;
             }
         }
 
@@ -228,7 +229,7 @@ public class WFC2D : MonoBehaviour
     private bool CheckFullyCollapsed()
     {
         foreach (var tile in tiles2D)
-            if (!tile.IsCollapsed())
+            if (!tile.collapsed)
                 return false;
 
         return true;
@@ -250,10 +251,10 @@ public class WFC2D : MonoBehaviour
         string separator = "-";
         foreach (var tile in tiles2D)
         {
-            if (!tile.IsCollapsed())
+            if (!tile.collapsed)
                 state += "x" + separator;
             else
-                state += types.IndexOf(tile.GetTileType()) + separator;
+                state += types.IndexOf(tile.type).ToString() + separator;
         }
 
         state = state.Remove(state.Length - 1);

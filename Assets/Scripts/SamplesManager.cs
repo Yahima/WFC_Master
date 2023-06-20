@@ -6,10 +6,10 @@ using UnityEngine;
 // Generates Sprites and adjacency rules from multiple samples
 public class SamplesManager
 {
-    private readonly Dictionary<string, Sprite> sprites;
-    private Dictionary<string, Dictionary<Dir, List<string>>> rules;
-    private readonly List<string> types;
-    private readonly List<TileData> data;
+    public Dictionary<string, Sprite> sprites;
+    public Dictionary<string, Dictionary<Direction, List<string>>> rules;
+    public List<string> types;
+    public List<Tile> tiles;
 
     private readonly string samplesPath;
     private readonly string xmlFilePath;
@@ -27,35 +27,14 @@ public class SamplesManager
         this.filterMode = filterMode;
 
         sprites = new Dictionary<string, Sprite>();
-        rules = new Dictionary<string, Dictionary<Dir, List<string>>>();
+        rules = new Dictionary<string, Dictionary<Direction, List<string>>>();
         types = new List<string>();
-        data = new List<TileData>();
+        tiles = new List<Tile>();
 
-        ExtractTilesFromSamples(true);
-
-        /* if (File.Exists(this.xmlFilePath))
-         {
-             ExtractTilesFromSamples(false);
-             LoadXML(this.xmlFilePath);
-         }
-         else
-         {
-             ExtractTilesFromSamples(true);
-             SaveToXML(this.xmlFilePath);
-         }
-
-         foreach (var rule in rules)
-         {
-             Debug.Log(rule.Key);
-             foreach (var dir in rule.Value)
-             {
-                 Debug.Log(dir.Key + ":" + dir.Value.Count);
-             }
-         }
-         Debug.Log(rules.Count);*/
+        ExtractTilesFromSamples();
     }
 
-    private void ExtractTilesFromSamples(bool generateRules)
+    private void ExtractTilesFromSamples()
     {
         foreach (Object obj in Resources.LoadAll(samplesPath, typeof(Texture2D)))
         {
@@ -79,45 +58,39 @@ public class SamplesManager
                         types.Add(tileHash);
 
                         string filename = Path.GetFileNameWithoutExtension(obj.name);
-                        int value = int.Parse(filename[^3..]);
+                        int value = int.Parse(filename.Substring(0, 3));
                         int weight = 1;
 
-                        TileData tileData = new(tileHash, value, weight);
-                        data.Add(tileData);
+                        Tile tile = new(tileHash, value, weight);
+                        tiles.Add(tile);
 
-                        if (generateRules)
+                        Dictionary<Direction, List<string>> validsForDirection = new()
                         {
-                            Dictionary<Dir, List<string>> validsForDirection = new()
-                            {
-                                { Dir.Up, new List<string>() },
-                                { Dir.Right, new List<string>() },
-                                { Dir.Down, new List<string>() },
-                                { Dir.Left, new List<string>() }
-                            };
+                            { Direction.North, new List<string>() },
+                            { Direction.East, new List<string>() },
+                            { Direction.South, new List<string>() },
+                            { Direction.West, new List<string>() }
+                        };
 
-                            rules.Add(tileHash, validsForDirection);
-                            GetAdjacentTilesFromSample(sampleTexture, tileHash);
-                        }
-                       
+                        rules.Add(tileHash, validsForDirection);
+                        GetAdjacentTilesFromSample(sampleTexture, tileHash);
                     }
 
                     else
                     {
-                        TileData existingTile = data.FirstOrDefault(tile => tile.name == tileHash);
+                        Tile existingTile = tiles.FirstOrDefault(tile => tile.name == tileHash);
                         existingTile.weight += 1;
 
-                        if (generateRules)
-                            GetAdjacentTilesFromSample(sampleTexture, tileHash);
+                        GetAdjacentTilesFromSample(sampleTexture, tileHash);
                     }
                 }
             }
         }
-/*      
- *      foreach (var tile in tiles)
+        foreach (var tile in tiles)
         {
             Debug.Log(tile.value + " : " + tile.weight);
         }
-        Debug.Log(rules.Count);*/
+        Debug.Log(rules.Count);
     }
 
     private void GetAdjacentTilesFromSample(Texture2D sampleTexture, string tileHash)
@@ -138,7 +111,7 @@ public class SamplesManager
                         adjacentTileTexture.SetPixels(sampleTexture.GetPixels(i, j + tileSize, tileSize, tileSize));
                         adjacentTileHash = GenerateTextureHash(adjacentTileTexture);
 
-                        AddAdjacent(Dir.Up, tileHash, adjacentTileHash);
+                        AddAdjacent(Direction.North, tileHash, adjacentTileHash);
                     }
 
                     if (i < sampleTexture.width - tileSize)
@@ -147,7 +120,7 @@ public class SamplesManager
                         adjacentTileTexture.SetPixels(sampleTexture.GetPixels(i + tileSize, j, tileSize, tileSize));
                         adjacentTileHash = GenerateTextureHash(adjacentTileTexture);
 
-                        AddAdjacent(Dir.Right, tileHash, adjacentTileHash);
+                        AddAdjacent(Direction.East, tileHash, adjacentTileHash);
                     }
 
                     if (j > 0)
@@ -156,7 +129,7 @@ public class SamplesManager
                         adjacentTileTexture.SetPixels(sampleTexture.GetPixels(i, j - tileSize, tileSize, tileSize));
                         adjacentTileHash = GenerateTextureHash(adjacentTileTexture);
 
-                        AddAdjacent(Dir.Down, tileHash, adjacentTileHash);
+                        AddAdjacent(Direction.South, tileHash, adjacentTileHash);
                     }
 
                     if (i > 0)
@@ -165,14 +138,14 @@ public class SamplesManager
                         adjacentTileTexture.SetPixels(sampleTexture.GetPixels(i - tileSize, j, tileSize, tileSize));
                         adjacentTileHash = GenerateTextureHash(adjacentTileTexture);
 
-                        AddAdjacent(Dir.Left, tileHash, adjacentTileHash);
+                        AddAdjacent(Direction.West, tileHash, adjacentTileHash);
                     }
                 }
             }
         }
     }
 
-    private void AddAdjacent(Dir dir, string tileHash, string adjacentTileHash)
+    private void AddAdjacent(Direction dir, string tileHash, string adjacentTileHash)
     {
         if (!rules[tileHash][dir].Contains(adjacentTileHash))
             rules[tileHash][dir].Add(adjacentTileHash);
@@ -194,27 +167,7 @@ public class SamplesManager
     private void LoadXML(string xmlFilePath)
     {
         XmlDictionaryManager loader = new(xmlFilePath);
-        Dictionary<string, Dictionary<Dir, List<string>>> loadedRules = loader.Load();
+        Dictionary<string, Dictionary<Direction, List<string>>> loadedRules = loader.Load();
         rules = loadedRules;
-    }
-
-    public Dictionary<string, Sprite> GetSprites()
-    {
-        return sprites;
-    }
-
-    public Dictionary<string, Dictionary<Dir, List<string>>> GetRules()
-    {
-        return rules;
-    }
-
-    public List<string> GetTypes()
-    {
-        return types;
-    }
-
-    public List<TileData> GetTileData()
-    {
-        return data;
     }
 }

@@ -8,9 +8,9 @@ using System;
 public class SampleManager2D
 {
     public Dictionary<string, Sprite> sprites;
-    public Dictionary<string, Dictionary<Dir, List<string>>> rules;
+    public Dictionary<string, Dictionary<Direction, List<string>>> rules;
 
-    private Dictionary<Dir, List<string>> adjacents;
+    private Dictionary<Direction, List<string>> adjacents;
 
     private readonly string samplePath;
     private readonly string xmlFilePath;
@@ -26,7 +26,7 @@ public class SampleManager2D
         this.filterMode = filterMode;
 
         sprites = new Dictionary<string, Sprite>();
-        rules = new Dictionary<string, Dictionary<Dir, List<string>>>();
+        rules = new Dictionary<string, Dictionary<Direction, List<string>>>();
 
         if (File.Exists(this.xmlFilePath))
         {
@@ -81,14 +81,14 @@ public class SampleManager2D
     }
 
     // TODO: Create function for repeated code
-    private Dictionary<Dir, List<string>> GetValidAdjacencies(Texture2D texture)
+    private Dictionary<Direction, List<string>> GetValidAdjacencies(Texture2D texture)
     {
         adjacents = new()
         {
-            { Dir.Up, new List<string>() },
-            { Dir.Right, new List<string>() },
-            { Dir.Down, new List<string>() },
-            { Dir.Left, new List<string>() }
+            { Direction.North, new List<string>() },
+            { Direction.East, new List<string>() },
+            { Direction.South, new List<string>() },
+            { Direction.West, new List<string>() }
         };
 
         for (int i = 0; i < sourceTexture.width; i += tileSize)
@@ -102,16 +102,16 @@ public class SampleManager2D
                 if (blockHash == GetTextureHash(texture))
                 {
                     if (j < sourceTexture.height - tileSize) // North
-                        AddAdjacent(i, j + tileSize, Dir.Up);
+                        AddAdjacent(i, j + tileSize, Direction.North);
 
                     if (i < sourceTexture.width - tileSize) // East
-                        AddAdjacent(i + tileSize, j, Dir.Right);
+                        AddAdjacent(i + tileSize, j, Direction.East);
 
                     if (j > 0) // South
-                        AddAdjacent(i, j - tileSize, Dir.Down);
+                        AddAdjacent(i, j - tileSize, Direction.South);
 
                     if (i > 0) // West
-                        AddAdjacent(i - tileSize, j, Dir.Left);
+                        AddAdjacent(i - tileSize, j, Direction.West);
                 }
             }
         }
@@ -119,7 +119,7 @@ public class SampleManager2D
         return adjacents;
     }
 
-    private void AddAdjacent(int x, int y, Dir dir)
+    private void AddAdjacent(int x, int y, Direction dir)
     {
         Texture2D adjacentTexture = new(tileSize, tileSize);
         adjacentTexture.SetPixels(sourceTexture.GetPixels(x, y, tileSize, tileSize));
@@ -143,7 +143,7 @@ public class SampleManager2D
     private void LoadXML(string xmlFilePath)
     {
         XmlDictionaryManager loader = new(xmlFilePath);
-        Dictionary<string, Dictionary<Dir, List<string>>> loadedRules = loader.Load();
+        Dictionary<string, Dictionary<Direction, List<string>>> loadedRules = loader.Load();
         rules = loadedRules;
     }
 }

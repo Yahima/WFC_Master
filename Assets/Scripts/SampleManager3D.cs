@@ -6,18 +6,19 @@ using System;
 public class SampleManager3D
 {
     private readonly GameObject[] sampleModules;
-    private Dictionary<string, GameObject> gameObjects;
+    private readonly Dictionary<string, Tuple<GameObject, int>> gameObjects;
     private Dictionary<string, Dictionary<Dir, List<string>>> moduleRules;
-    private int yOffset = 5;
-    private int objectSize = 10;
+
+    private readonly int yOffset = 5;
+    private readonly int objectSize = 10;
 
     public SampleManager3D()
     {
         sampleModules = GameObject.FindGameObjectsWithTag("Module");
-        gameObjects = new Dictionary<string, GameObject>();
+        gameObjects = new Dictionary<string, Tuple<GameObject, int>>();
     }
 
-    public Dictionary<string, GameObject> GetObjects()
+    public Dictionary<string, Tuple<GameObject, int>> GetObjects()
     {
         return gameObjects;
     }
@@ -30,7 +31,7 @@ public class SampleManager3D
         foreach (GameObject sampleModule in sampleModules)
         {
             if (!gameObjects.ContainsKey(sampleModule.name))
-                gameObjects.Add(sampleModule.name, sampleModule);
+                gameObjects.Add(sampleModule.name, new(sampleModule, sampleModule.GetComponent<ModuleSymmetry>().weight));
 
             int rotations = GetRotations((int)sampleModule.transform.eulerAngles.y);
             string moduleName = sampleModule.name + rotations.ToString();
@@ -51,9 +52,9 @@ public class SampleManager3D
             }       
         }
 
-        foreach (var rule in moduleRules)
+        /*foreach (var rule in moduleRules)
         {
-            Debug.Log("module:::::::::::::::::::::" + rule.Key);
+            Debug.Log("module:" + rule.Key);
             foreach (var dir in rule.Value)
             {
                 Debug.Log(dir.Key);
@@ -62,9 +63,9 @@ public class SampleManager3D
                     Debug.Log(name);
                 }
             }
-        }
+        }*/
 
-        Debug.Log(moduleRules.Count);
+        //Debug.Log(moduleRules.Count);
 
         return moduleRules;
     }
@@ -96,7 +97,7 @@ public class SampleManager3D
                     if (rotation < 0)
                         rotation += 4;
 
-                    rotatedAdjacents[Dir.Forward].Add(name + rotation.ToString());
+                    rotatedAdjacents[Dir.Back].Add(name + rotation.ToString());
                 }
 
                 foreach (string moduleName in adjacents[Dir.Back])
@@ -108,7 +109,7 @@ public class SampleManager3D
                     if (rotation < 0)
                         rotation += 4;
 
-                    rotatedAdjacents[Dir.Right].Add(name + rotation.ToString());
+                    rotatedAdjacents[Dir.Left].Add(name + rotation.ToString());
                 }
 
                 foreach (string moduleName in adjacents[Dir.Left])
@@ -120,7 +121,7 @@ public class SampleManager3D
                     if (rotation < 0)
                         rotation += 4;
 
-                    rotatedAdjacents[Dir.Back].Add(name + rotation.ToString());
+                    rotatedAdjacents[Dir.Forward].Add(name + rotation.ToString());
                 }
 
                 foreach (string moduleName in adjacents[Dir.Forward])
@@ -132,7 +133,7 @@ public class SampleManager3D
                     if (rotation < 0)
                         rotation += 4;
 
-                    rotatedAdjacents[Dir.Left].Add(name + rotation.ToString());
+                    rotatedAdjacents[Dir.Right].Add(name + rotation.ToString());
                 }
 
                 break;
@@ -200,7 +201,7 @@ public class SampleManager3D
                     if (rotation < 0)
                         rotation += 4;
 
-                    rotatedAdjacents[Dir.Forward].Add(name + rotation.ToString());
+                    rotatedAdjacents[Dir.Back].Add(name + rotation.ToString());
                 }
 
                 foreach (string moduleName in adjacents[Dir.Forward])
@@ -212,7 +213,7 @@ public class SampleManager3D
                     if (rotation < 0)
                         rotation += 4;
 
-                    rotatedAdjacents[Dir.Right].Add(name + rotation.ToString());
+                    rotatedAdjacents[Dir.Left].Add(name + rotation.ToString());
                 }
 
                 foreach (string moduleName in adjacents[Dir.Right])
@@ -224,7 +225,7 @@ public class SampleManager3D
                     if (rotation < 0)
                         rotation += 4;
 
-                    rotatedAdjacents[Dir.Back].Add(name + rotation.ToString());
+                    rotatedAdjacents[Dir.Forward].Add(name + rotation.ToString());
                 }
 
                 foreach (string moduleName in adjacents[Dir.Back])
@@ -236,7 +237,7 @@ public class SampleManager3D
                     if (rotation < 0)
                         rotation += 4;
 
-                    rotatedAdjacents[Dir.Left].Add(name + rotation.ToString());
+                    rotatedAdjacents[Dir.Right].Add(name + rotation.ToString());
                 }
 
                 break;
@@ -271,60 +272,222 @@ public class SampleManager3D
 
                 if (adjacentObject != null)
                 {
-                    string adjacentName = adjacentObject.name + GetRotations((int)adjacentObject.transform.eulerAngles.y);
+                    if (adjacentObject.GetComponent<ModuleSymmetry>().symmetry == "x")
+                    {
+                        for (int i = 0; i <= 3; i++)
+                        {
+                            string adjacentName = adjacentObject.name + i;
 
-                    if (!adjacents[Dir.Forward].Contains(adjacentName))
-                        adjacents[Dir.Forward].Add(adjacentName);  
+                            if (!adjacents[Dir.Forward].Contains(adjacentName))
+                                adjacents[Dir.Forward].Add(adjacentName);
+                        }
+                    }
+
+                    else if (adjacentObject.GetComponent<ModuleSymmetry>().symmetry == "l")
+                    {
+                        string adjacentName = adjacentObject.name + GetRotations((int)adjacentObject.transform.eulerAngles.y);
+
+                        if (!adjacents[Dir.Forward].Contains(adjacentName))
+                            adjacents[Dir.Forward].Add(adjacentName);
+
+                        adjacentName = adjacentObject.name + GetRotations((int)adjacentObject.transform.eulerAngles.y + 180);
+
+                        if (!adjacents[Dir.Forward].Contains(adjacentName))
+                            adjacents[Dir.Forward].Add(adjacentName);
+                    }
+
+                    else
+                    {
+                        string adjacentName = adjacentObject.name + GetRotations((int)adjacentObject.transform.eulerAngles.y);
+
+                        if (!adjacents[Dir.Forward].Contains(adjacentName))
+                            adjacents[Dir.Forward].Add(adjacentName);
+                    }
                 }
 
                 adjacentObject = FindObjectAtPosition(sampleModule.transform.position + (Vector3.back * objectSize) + new Vector3(0, yOffset, 0));
 
                 if (adjacentObject != null)
                 {
-                    string adjacentName = adjacentObject.name + GetRotations((int)adjacentObject.transform.eulerAngles.y);
+                    if (adjacentObject.GetComponent<ModuleSymmetry>().symmetry == "x")
+                    {
+                        for (int i = 0; i <= 3; i++)
+                        {
+                            string adjacentName = adjacentObject.name + i;
 
-                    if (!adjacents[Dir.Back].Contains(adjacentName))
-                        adjacents[Dir.Back].Add(adjacentName);
+                            if (!adjacents[Dir.Back].Contains(adjacentName))
+                                adjacents[Dir.Back].Add(adjacentName);
+                        }
+                    }
+
+                    else if (adjacentObject.GetComponent<ModuleSymmetry>().symmetry == "l")
+                    {
+                        string adjacentName = adjacentObject.name + GetRotations((int)adjacentObject.transform.eulerAngles.y);
+
+                        if (!adjacents[Dir.Back].Contains(adjacentName))
+                            adjacents[Dir.Back].Add(adjacentName);
+
+                        adjacentName = adjacentObject.name + GetRotations((int)adjacentObject.transform.eulerAngles.y + 180);
+
+                        if (!adjacents[Dir.Back].Contains(adjacentName))
+                            adjacents[Dir.Back].Add(adjacentName);
+                    }
+
+                    else
+                    {
+                        string adjacentName = adjacentObject.name + GetRotations((int)adjacentObject.transform.eulerAngles.y);
+
+                        if (!adjacents[Dir.Back].Contains(adjacentName))
+                            adjacents[Dir.Back].Add(adjacentName);
+                    }
                 }
 
                 adjacentObject = FindObjectAtPosition(sampleModule.transform.position + (Vector3.left * objectSize) + new Vector3(0, yOffset, 0));
 
                 if (adjacentObject != null)
                 {
-                    string adjacentName = adjacentObject.name + GetRotations((int)adjacentObject.transform.eulerAngles.y);
+                    if (adjacentObject.GetComponent<ModuleSymmetry>().symmetry == "x")
+                    {
+                        for (int i = 0; i <= 3; i++)
+                        {
+                            string adjacentName = adjacentObject.name + i;
 
-                    if (!adjacents[Dir.Left].Contains(adjacentName))
-                        adjacents[Dir.Left].Add(adjacentName);
+                            if (!adjacents[Dir.Left].Contains(adjacentName))
+                                adjacents[Dir.Left].Add(adjacentName);
+                        }
+                    }
+
+                    else if (adjacentObject.GetComponent<ModuleSymmetry>().symmetry == "l")
+                    {
+                        string adjacentName = adjacentObject.name + GetRotations((int)adjacentObject.transform.eulerAngles.y);
+
+                        if (!adjacents[Dir.Left].Contains(adjacentName))
+                            adjacents[Dir.Left].Add(adjacentName);
+
+                        adjacentName = adjacentObject.name + GetRotations((int)adjacentObject.transform.eulerAngles.y + 180);
+
+                        if (!adjacents[Dir.Left].Contains(adjacentName))
+                            adjacents[Dir.Left].Add(adjacentName);
+                    }
+
+                    else
+                    {
+                        string adjacentName = adjacentObject.name + GetRotations((int)adjacentObject.transform.eulerAngles.y);
+
+                        if (!adjacents[Dir.Left].Contains(adjacentName))
+                            adjacents[Dir.Left].Add(adjacentName);
+                    }
                 }
 
                 adjacentObject = FindObjectAtPosition(sampleModule.transform.position + (Vector3.right * objectSize) + new Vector3(0, yOffset, 0));
 
                 if (adjacentObject != null)
                 {
-                    string adjacentName = adjacentObject.name + GetRotations((int)adjacentObject.transform.eulerAngles.y);
+                    if (adjacentObject.GetComponent<ModuleSymmetry>().symmetry == "x")
+                    {
+                        for (int i = 0; i <= 3; i++)
+                        {
+                            string adjacentName = adjacentObject.name + i;
 
-                    if (!adjacents[Dir.Right].Contains(adjacentName))
-                        adjacents[Dir.Right].Add(adjacentName);
+                            if (!adjacents[Dir.Right].Contains(adjacentName))
+                                adjacents[Dir.Right].Add(adjacentName);
+                        }
+                    }
+
+                    else if (adjacentObject.GetComponent<ModuleSymmetry>().symmetry == "l")
+                    {
+                        string adjacentName = adjacentObject.name + GetRotations((int)adjacentObject.transform.eulerAngles.y);
+
+                        if (!adjacents[Dir.Right].Contains(adjacentName))
+                            adjacents[Dir.Right].Add(adjacentName);
+
+                        adjacentName = adjacentObject.name + GetRotations((int)adjacentObject.transform.eulerAngles.y + 180);
+
+                        if (!adjacents[Dir.Right].Contains(adjacentName))
+                            adjacents[Dir.Right].Add(adjacentName);
+                    }
+
+                    else
+                    {
+                        string adjacentName = adjacentObject.name + GetRotations((int)adjacentObject.transform.eulerAngles.y);
+
+                        if (!adjacents[Dir.Right].Contains(adjacentName))
+                            adjacents[Dir.Right].Add(adjacentName);
+                    }
                 }
 
                 adjacentObject = FindObjectAtPosition(sampleModule.transform.position + (Vector3.up * objectSize) + new Vector3(0, yOffset, 0));
 
                 if (adjacentObject != null)
                 {
-                    string adjacentName = adjacentObject.name + GetRotations((int)adjacentObject.transform.eulerAngles.y);
+                    if (adjacentObject.GetComponent<ModuleSymmetry>().symmetry == "x")
+                    {
+                        for (int i = 0; i <= 3; i++)
+                        {
+                            string adjacentName = adjacentObject.name + i;
 
-                    if (!adjacents[Dir.Up].Contains(adjacentName))
-                        adjacents[Dir.Up].Add(adjacentName);
+                            if (!adjacents[Dir.Up].Contains(adjacentName))
+                                adjacents[Dir.Up].Add(adjacentName);
+                        }
+                    }
+
+                    else if (adjacentObject.GetComponent<ModuleSymmetry>().symmetry == "l")
+                    {
+                        string adjacentName = adjacentObject.name + GetRotations((int)adjacentObject.transform.eulerAngles.y);
+
+                        if (!adjacents[Dir.Up].Contains(adjacentName))
+                            adjacents[Dir.Up].Add(adjacentName);
+
+                        adjacentName = adjacentObject.name + GetRotations((int)adjacentObject.transform.eulerAngles.y + 180);
+
+                        if (!adjacents[Dir.Up].Contains(adjacentName))
+                            adjacents[Dir.Up].Add(adjacentName);
+                    }
+
+                    else
+                    {
+                        string adjacentName = adjacentObject.name + GetRotations((int)adjacentObject.transform.eulerAngles.y);
+
+                        if (!adjacents[Dir.Up].Contains(adjacentName))
+                            adjacents[Dir.Up].Add(adjacentName);
+                    }
                 }
 
                 adjacentObject = FindObjectAtPosition(sampleModule.transform.position + (Vector3.down * objectSize) + new Vector3(0, yOffset, 0));
 
                 if (adjacentObject != null)
                 {
-                    string adjacentName = adjacentObject.name + GetRotations((int)adjacentObject.transform.eulerAngles.y);
+                    if (adjacentObject.GetComponent<ModuleSymmetry>().symmetry == "x")
+                    {
+                        for (int i = 0; i <= 3; i++)
+                        {
+                            string adjacentName = adjacentObject.name + i;
 
-                    if (!adjacents[Dir.Down].Contains(adjacentName))
-                        adjacents[Dir.Down].Add(adjacentName);
+                            if (!adjacents[Dir.Down].Contains(adjacentName))
+                                adjacents[Dir.Down].Add(adjacentName);
+                        }
+                    }
+
+                    else if (adjacentObject.GetComponent<ModuleSymmetry>().symmetry == "l")
+                    {
+                        string adjacentName = adjacentObject.name + GetRotations((int)adjacentObject.transform.eulerAngles.y);
+
+                        if (!adjacents[Dir.Down].Contains(adjacentName))
+                            adjacents[Dir.Down].Add(adjacentName);
+
+                        adjacentName = adjacentObject.name + GetRotations((int)adjacentObject.transform.eulerAngles.y + 180);
+
+                        if (!adjacents[Dir.Down].Contains(adjacentName))
+                            adjacents[Dir.Down].Add(adjacentName);
+                    }
+
+                    else
+                    {
+                        string adjacentName = adjacentObject.name + GetRotations((int)adjacentObject.transform.eulerAngles.y);
+
+                        if (!adjacents[Dir.Down].Contains(adjacentName))
+                            adjacents[Dir.Down].Add(adjacentName);
+                    }
                 }
             }
         }

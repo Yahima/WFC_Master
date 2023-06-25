@@ -5,29 +5,29 @@ using UnityEngine.UI;
 
 public class Tile2D
 {
-    public bool collapsed;
-    public string type;
-    public List<string> validTypes;
-    public List<Tile> tiles;
-    public Vector2Int gridPosition;
-    public GameObject gameObject;
+    private bool collapsed;
+    private string type;
+    private List<string> validTypes;
+    private readonly List<TileData> tileData;
+    private Vector2Int gridPosition;
+    private readonly GameObject tileObject;
 
-    public Tile2D(RectTransform container, Vector2 position, Vector2 size, List<string> types, List<Tile> tileTypes, int x, int y)
+    public Tile2D(RectTransform container, Vector2 position, Vector2 size, List<string> types, List<TileData> data, int x, int y)
     {
         collapsed = false;
         validTypes = types;
-        tiles = tileTypes;
+        tileData = data;
         gridPosition = new Vector2Int(x, y);
 
-        gameObject = new GameObject(x + ":" + y);
+        tileObject = new GameObject(x + ":" + y);
 
-        RectTransform trans = gameObject.AddComponent<RectTransform>();
+        RectTransform trans = tileObject.AddComponent<RectTransform>();
         trans.transform.SetParent(container);
         trans.localScale = Vector3.one;
         trans.anchoredPosition = position;
         trans.sizeDelta = size;
 
-        gameObject.AddComponent<Image>();
+        tileObject.AddComponent<Image>();
     }
 
     public void Collapse()
@@ -57,19 +57,19 @@ public class Tile2D
     public void ResetTile()
     {
         collapsed = false;
-        gameObject.GetComponent<Image>().sprite = null;
+        tileObject.GetComponent<Image>().sprite = null;
     }
 
     public float GetEntropy()
     {
         float sumWeight = 0;
         float sumWeightLogWeight = 0;
-        List<Tile> filteredTileList = tiles.Where(tile => validTypes.Contains(tile.name)).ToList();
+        List<TileData> filteredTileList = tileData.Where(tile => validTypes.Contains(tile.name)).ToList();
 
         if (filteredTileList.Count == 0)
             return 0f;
 
-        foreach (Tile tile in filteredTileList)
+        foreach (TileData tile in filteredTileList)
         {
             sumWeight += tile.weight;
             sumWeightLogWeight += tile.weight * Mathf.Log(tile.weight);
@@ -78,6 +78,51 @@ public class Tile2D
         float entropy = Mathf.Log(sumWeight) - (sumWeightLogWeight / sumWeight);
 
         return entropy;
+    }
+
+    public bool IsCollapsed()
+    {
+        return collapsed;
+    }
+
+    public string GetTileType()
+    {
+        return type;
+    }
+
+    public List<string> GetValidTypes()
+    {
+        return validTypes;
+    }
+
+    public void SetValidTypes(List<string> valids)
+    {
+        validTypes = valids;
+    }
+
+    public Vector2Int GetGridPosition()
+    {
+        return gridPosition;
+    }
+
+    public GameObject GetTileObject()
+    {
+        return tileObject;
+    }
+
+    public void SetObjectImage(Sprite sprite)
+    {
+        tileObject.GetComponent<Image>().sprite = sprite;
+    }
+
+    public bool ObjectImageIsEmpty()
+    {
+        return tileObject.GetComponent<Image>().sprite == null;
+    }
+
+    public void RemoveType(string type)
+    {
+        validTypes.Remove(type);
     }
 }
 

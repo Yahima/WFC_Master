@@ -15,15 +15,16 @@ public class WFC3D : MonoBehaviour
     private SampleManager3D sampleManager;
 
     // All module names
-    private List<string> moduleTypes;
-    private Dictionary<string, GameObject> gameObjects;
+    private List<Tuple<string, int>> moduleTypes;
+
+    List<Tuple<string, int>> edgeModuleTypes;
+    private Dictionary<string, Tuple<GameObject, int>> gameObjects;
 
     // Module adjacency rules for each direction
     private Dictionary<string, Dictionary<Dir, List<string>>> rules;
 
     // Grid
     private Vector3Int[,,] blocks;
-    private int blockSize = 5;
 
     // Modules
     private Module[,,] modules;
@@ -33,10 +34,8 @@ public class WFC3D : MonoBehaviour
     private List<Vector3Int> lowEntropyList;
 
     // Backtraking
-    private List<(Vector3Int, string)> steps;
-    private Dictionary<Vector2Int, int> history;
-    private int maxResets = 2;
-    private int resets = 0;
+    private List<string> errorStates;
+    private List<History3D> history;
 
     // Use this for initialization
     void Start()
@@ -45,45 +44,47 @@ public class WFC3D : MonoBehaviour
         blocks = gridManager.CreateGrid();
 
         sampleManager = new SampleManager3D();
-        
-
-        moduleTypes = new List<string>();
-        /*foreach (var item in gameObjects)
-            moduleTypes.Add(item.Key);*/
 
         rules = sampleManager.GenerateRulesFromSamples();
-        
-        foreach (var item in rules)
-            moduleTypes.Add(item.Key);
-
         gameObjects = sampleManager.GetObjects();
+        moduleTypes = new List<Tuple<string, int>>();
 
+        foreach (var rule in rules)
+            moduleTypes.Add(new(rule.Key, gameObjects[rule.Key[0..^1]].Item2));
+
+        
         modules = new Module[xSize, ySize, zSize];
         newModules = new Module[xSize, ySize, zSize];
 
+        edgeModuleTypes = moduleTypes.Where(tuple => !tuple.Item1.Contains("ground")).ToList();
+        
         foreach (var block in blocks)
         {
             int x = block.x;
             int y = block.y;
             int z = block.z;
 
-            modules[x, y, z] = new Module(new Vector3Int(x, y, z), moduleTypes);
+            if ((x == 0 || x == blocks.GetLength(0) - 1 || z == 0 || z == blocks.GetLength(2) - 1) && y == 0)
+                modules[x, y, z] = new Module(new Vector3Int(x, y, z), edgeModuleTypes, true);
+            else
+                modules[x, y, z] = new Module(new Vector3Int(x, y, z), moduleTypes, false);
         }
 
         lowEntropyList = new List<Vector3Int>();
 
-        steps = new List<(Vector3Int, string)>();
-        history = new Dictionary<Vector2Int, int>();
+        errorStates = new List<string>();
+        history = new List<History3D>();
 
-       // CollapseEdges();
+        modules[0, 0, 0].CollapseTo("streetc1");
         UpdateValids();
+
 
     }
 
     // Update is called once per frame
     void Update()
     {
-        if (CheckFullyCollapsed() == false)
+        if (!CheckFullyCollapsed())
         {
             UpdateEntropy();
 
@@ -92,29 +93,53 @@ public class WFC3D : MonoBehaviour
 
             System.Random random = new System.Random();
             int index = random.Next(0, lowEntropyList.Count);
-            Vector3Int cell = lowEntropyList[index];
+            Vector3Int currentCell = lowEntropyList[index];
 
-            if (modules[cell.x, cell.y, cell.z].validTypes.Count > 0)
+            bool fertig = false;
+
+            while (modules[currentCell.x, currentCell.y, currentCell.z].GetValidTypes().Count > 0 && !fertig)
             {
-                modules[cell.x, cell.y, cell.z].Collapse();
-                steps.Add(new(cell, modules[cell.x, cell.y, cell.z].type));
-            }
-            else
-            {
-               /* if (steps.Count > 0)
+                modules[currentCell.x, currentCell.y, currentCell.z].Collapse();
+
+                if (errorStates.Contains(CurrentState()))
+                    modules[currentCell.x, currentCell.y, currentCell.z].RemoveType(modules[currentCell.x, currentCell.y, currentCell.z].GetTileType());
+
+                else
                 {
-                    while (!modules[steps[^1].Item1.x, steps[^1].Item1.y, steps[^1].Item1.z].CollapseOther(steps[^1].Item2))
+                    history.Add(new History3D(CurrentState(), new(currentCell, modules[currentCell.x, currentCell.y, currentCell.z].GetTileType())));
+                    fertig = true;
+                }
+            }
+
+            if (!fertig)
+            {
+                modules[currentCell.x, currentCell.y, currentCell.z].ResetModule();
+                errorStates.Add(CurrentState());
+
+                List<Vector3Int> cellAdjacents = GetCellAdjacents(currentCell);
+                History3D lastCollapsed = history
+                    .Where(history => cellAdjacents.Contains(history.Step.Item1))
+                    .LastOrDefault();
+
+                int lastCollapsedIndex = history.IndexOf(lastCollapsed);
+                LoadState(history[lastCollapsedIndex].CurrentState);
+                errorStates.Add(CurrentState());
+                foreach (Module module in modules)
+                {
+                    if (cellAdjacents.Contains(module.GetGridPosition()))
                     {
-                        steps.RemoveAt(steps.Count - 1);
+                        module.ResetModule();
                     }
-                }*/
+                }
+
+                history.RemoveRange(lastCollapsedIndex, history.Count - lastCollapsedIndex);
             }
 
             UpdateValids();
 
             foreach (var module in modules)
                 if (module.collapsed && module.model == null)
-                    module.SetObject(gameObjects[module.type[0..^1]]);
+                    module.SetObject(gameObjects[module.GetTileType()[0..^1]].Item1);
         }
     }
 
@@ -126,17 +151,17 @@ public class WFC3D : MonoBehaviour
 
         foreach (var module in modules)
         {
-            if ((module.collapsed == true) || (module.validTypes.Count > lowest))
+            if ((module.collapsed == true) || (module.GetValidTypes().Count > lowest))
                 continue;
 
-            if (module.validTypes.Count < lowest)
+            if (module.GetValidTypes().Count < lowest)
             {
-                lowest = module.validTypes.Count;
+                lowest = module.GetValidTypes().Count;
                 lowEntropyList.Clear();
                 lowEntropyList.Add(module.gridPosition);
             }
 
-            else if (module.validTypes.Count == lowest)
+            else if (module.GetValidTypes().Count == lowest)
                 lowEntropyList.Add(module.gridPosition);
         }
     }
@@ -145,6 +170,22 @@ public class WFC3D : MonoBehaviour
     public List<string> GetValidsForDirection(string type, Dir dir)
     {
         return rules[type][dir];
+    }
+
+    private string CurrentState()
+    {
+        string state = "";
+        string separator = "-";
+        foreach (var module in modules)
+        {
+            if (!module.IsCollapsed())
+                state += "x" + separator;
+            else
+                state += moduleTypes.FindIndex(tuple => tuple.Item1 == module.GetTileType()).ToString() + separator;
+        }
+
+        state = state.Remove(state.Length - 1);
+        return state;
     }
 
     // Sets valid modules for each block by checking all directions
@@ -159,91 +200,103 @@ public class WFC3D : MonoBehaviour
             int y = block.y;
             int z = block.z;
 
-            if (modules[x, y, z].collapsed)
-                newModules[x, y, z] = modules[x, y, z];
-
-            else
+            if (CheckEdgeCollapsed() || (modules[x, y, z].IsEdge() && !CheckEdgeCollapsed()))
             {
-                List<string> options = moduleTypes;
-                if (x > 0)
+                if (modules[x, y, z].collapsed)
+                    newModules[x, y, z] = modules[x, y, z];
+
+                else
                 {
-                    valids.Clear();
-                    if (modules[x - 1, y, z].collapsed)
-                        valids.AddRange(GetValidsForDirection(modules[x - 1, y, z].type, Dir.Right));
-
+                    List<string> options = new();
+                    if (!CheckEdgeCollapsed())
+                    {
+                        options = edgeModuleTypes.Select(tuple => tuple.Item1).ToList();
+                    }
                     else
-                        valids = options;
+                    {
+                        options = moduleTypes.Select(tuple => tuple.Item1).ToList();
+                    }
 
-                    valids = valids.Distinct().ToList();
-                    options = options.Intersect(valids).ToList();
+                    if (x > 0)
+                    {
+                        valids.Clear();
+                        if (modules[x - 1, y, z].collapsed)
+                            valids.AddRange(GetValidsForDirection(modules[x - 1, y, z].GetTileType(), Dir.Right));
+
+                        else
+                            valids = options;
+
+                        valids = valids.Distinct().ToList();
+                        options = options.Intersect(valids).ToList();
+                    }
+
+                    if (x < blocks.GetLength(0) - 1)
+                    {
+                        valids.Clear();
+                        if (modules[x + 1, y, z].collapsed)
+                            valids.AddRange(GetValidsForDirection(modules[x + 1, y, z].GetTileType(), Dir.Left));
+
+                        else
+                            valids = options;
+
+                        valids = valids.Distinct().ToList();
+                        options = options.Intersect(valids).ToList();
+                    }
+
+                    if (y > 0)
+                    {
+                        valids.Clear();
+                        if (modules[x, y - 1, z].collapsed)
+                            valids.AddRange(GetValidsForDirection(modules[x, y - 1, z].GetTileType(), Dir.Up));
+
+                        else
+                            valids = options;
+
+                        valids = valids.Distinct().ToList();
+                        options = options.Intersect(valids).ToList();
+                    }
+
+                    if (y < blocks.GetLength(1) - 1)
+                    {
+                        valids.Clear();
+                        if (modules[x, y + 1, z].collapsed)
+                            valids.AddRange(GetValidsForDirection(modules[x, y + 1, z].GetTileType(), Dir.Down));
+
+                        else
+                            valids = options;
+
+                        valids = valids.Distinct().ToList();
+                        options = options.Intersect(valids).ToList();
+                    }
+
+                    if (z > 0)
+                    {
+                        valids.Clear();
+                        if (modules[x, y, z - 1].collapsed)
+                            valids.AddRange(GetValidsForDirection(modules[x, y, z - 1].GetTileType(), Dir.Forward));
+
+                        else
+                            valids = options;
+
+                        valids = valids.Distinct().ToList();
+                        options = options.Intersect(valids).ToList();
+                    }
+
+                    if (z < blocks.GetLength(2) - 1)
+                    {
+                        valids.Clear();
+                        if (modules[x, y, z + 1].collapsed)
+                            valids.AddRange(GetValidsForDirection(modules[x, y, z + 1].GetTileType(), Dir.Back));
+
+                        else
+                            valids = options;
+
+                        valids = valids.Distinct().ToList();
+                        options = options.Intersect(valids).ToList();
+                    }
+
+                    newModules[x, y, z].SetValidTypes(options);
                 }
-
-                if (x < blocks.GetLength(0) - 1)
-                {
-                    valids.Clear();
-                    if (modules[x + 1, y, z].collapsed)
-                        valids.AddRange(GetValidsForDirection(modules[x + 1, y, z].type, Dir.Left));
-
-                    else
-                        valids = options;
-
-                    valids = valids.Distinct().ToList();
-                    options = options.Intersect(valids).ToList();
-                }
-
-                if (y > 0)
-                {
-                    valids.Clear();
-                    if (modules[x, y - 1, z].collapsed)
-                        valids.AddRange(GetValidsForDirection(modules[x, y - 1, z].type, Dir.Up));
-
-                    else
-                        valids = options;
-
-                    valids = valids.Distinct().ToList();
-                    options = options.Intersect(valids).ToList();
-                }
-
-                if (y < blocks.GetLength(1) - 1)
-                {
-                    valids.Clear();
-                    if (modules[x, y + 1, z].collapsed)
-                        valids.AddRange(GetValidsForDirection(modules[x, y + 1, z].type, Dir.Down));
-
-                    else
-                        valids = options;
-
-                    valids = valids.Distinct().ToList();
-                    options = options.Intersect(valids).ToList();
-                }
-
-                if (z > 0)
-                {
-                    valids.Clear();
-                    if (modules[x, y, z - 1].collapsed)
-                        valids.AddRange(GetValidsForDirection(modules[x, y, z - 1].type, Dir.Forward));
-
-                    else
-                        valids = options;
-
-                    valids = valids.Distinct().ToList();
-                    options = options.Intersect(valids).ToList();
-                }
-
-                if (z < blocks.GetLength(2) - 1)
-                {
-                    valids.Clear();
-                    if (modules[x, y, z + 1].collapsed)
-                        valids.AddRange(GetValidsForDirection(modules[x, y, z + 1].type, Dir.Back));
-
-                    else
-                        valids = options;
-
-                    valids = valids.Distinct().ToList();
-                    options = options.Intersect(valids).ToList();
-                }
-
-                newModules[x, y, z].validTypes = options;
             }
         }
 
@@ -259,6 +312,15 @@ public class WFC3D : MonoBehaviour
         return true;
     }
 
+    private bool CheckEdgeCollapsed()
+    {
+        foreach (var module in modules)
+            if (module.IsEdge() && !module.collapsed)
+                return false;
+
+        return true;
+    }
+
     public void ResetGrid()
     {
         foreach (var module in modules)
@@ -267,37 +329,44 @@ public class WFC3D : MonoBehaviour
         }
     }
 
-    private void Backtrack(int backtrackAmount)
+    private List<Vector3Int> GetCellAdjacents(Vector3Int cell)
     {
-        if (backtrackAmount > steps.Count)
-        {
-            ResetGrid();
-            history.Clear();
-            resets++;
+        List<Vector3Int> adjacents = new();
+        int x = cell.x;
+        int y = cell.y;
+        int z = cell.z;
 
-            if (resets >= maxResets)
-            {
-                foreach (var module in modules)
-                    module.ResetModule();
+        if (x > 0)
+            if (modules[x - 1, y, z].IsCollapsed())
+                adjacents.Add(modules[x - 1, y, z].GetGridPosition());
 
-                resets = 0;
-            }
-        }
+        if (x < blocks.GetLength(0) - 1)
+            if (modules[x + 1, y, z].IsCollapsed())
+                adjacents.Add(modules[x + 1, y, z].GetGridPosition());
+
+        if (z > 0)
+            if (modules[x, y, z - 1].IsCollapsed())
+                adjacents.Add(modules[x, y, z - 1].GetGridPosition());
+
+        if (z < blocks.GetLength(2) - 1)
+            if (modules[x, y, z + 1].IsCollapsed())
+                adjacents.Add(modules[x, y, z + 1].GetGridPosition());
+
+        return adjacents;
     }
 
-    private void CollapseEdges()
+    private void LoadState(string state)
     {
-        
-        foreach (var block in blocks)
+        string[] states = state.Split("-");
+        int index = 0;
+        foreach (var module in modules)
         {
-            int x = block.x;
-            int y = block.y;
-            int z = block.z;
+            if (states[index].Equals("x"))
+                module.ResetModule();
+            else
+                module.CollapseToType(moduleTypes[int.Parse(states[index])].Item1);
 
-            if ((x == 0 || x == blocks.GetLength(0) - 1 || z == 0 || z == blocks.GetLength(2) - 1) && y == 0)
-            {
-                modules[x, y, z].CollapseTo("EMPTY");
-            }
+            index++;
         }
     }
 }

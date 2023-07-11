@@ -8,14 +8,17 @@ public class SampleManager3D
     private readonly GameObject[] sampleModules;
     private readonly Dictionary<string, Tuple<GameObject, int>> gameObjects;
     private Dictionary<string, Dictionary<Dir, List<string>>> moduleRules;
+    private string tag; 
+    private readonly float yOffset;
+    private readonly float objectSize;
 
-    private readonly int yOffset = 5;
-    private readonly int objectSize = 10;
-
-    public SampleManager3D()
+    public SampleManager3D(string tag, float objectSize, float yOffset)
     {
-        sampleModules = GameObject.FindGameObjectsWithTag("Module");
+        sampleModules = GameObject.FindGameObjectsWithTag(tag);
         gameObjects = new Dictionary<string, Tuple<GameObject, int>>();
+        this.tag = tag;
+        this.objectSize = objectSize;
+        this.yOffset = yOffset;
     }
 
     public Dictionary<string, Tuple<GameObject, int>> GetObjects()
@@ -36,6 +39,9 @@ public class SampleManager3D
             int rotations = GetRotations((int)sampleModule.transform.eulerAngles.y);
             string moduleName = sampleModule.name + rotations.ToString();
 
+            if (sampleModule.name == "fassadewindow")
+                Debug.Log("");
+
             if (!moduleRules.ContainsKey(moduleName))
             {
                 Dictionary<Dir, List<string>> adjacents = GetAdjacents(moduleName);
@@ -51,21 +57,24 @@ public class SampleManager3D
                 }
             }       
         }
-
-        /*foreach (var rule in moduleRules)
+        if (tag == "Module02")
         {
-            Debug.Log("module:" + rule.Key);
-            foreach (var dir in rule.Value)
+            foreach (var rule in moduleRules)
             {
-                Debug.Log(dir.Key);
-                foreach (var name in dir.Value)
+                Debug.Log("module:::::::::::::::::::::::::::" + rule.Key);
+                foreach (var dir in rule.Value)
                 {
-                    Debug.Log(name);
+                    Debug.Log(dir.Key);
+                    foreach (var name in dir.Value)
+                    {
+                        Debug.Log(name);
+                    }
                 }
             }
-        }*/
+        }
+       
 
-        //Debug.Log(moduleRules.Count);
+        Debug.Log(moduleRules.Count);
 
         return moduleRules;
     }
@@ -77,8 +86,8 @@ public class SampleManager3D
         rotatedAdjacents.Add(Dir.Back, new List<string>());
         rotatedAdjacents.Add(Dir.Left, new List<string>());
         rotatedAdjacents.Add(Dir.Right, new List<string>());
-        rotatedAdjacents.Add(Dir.Up, adjacents[Dir.Up]);
-        rotatedAdjacents.Add(Dir.Down, adjacents[Dir.Down]);
+        rotatedAdjacents.Add(Dir.Up, new List<string>());
+        rotatedAdjacents.Add(Dir.Down, new List<string>());
 
         int dirRotation = (targetRotation - currentRotation) % 4;
         if (dirRotation < 0)
@@ -245,6 +254,32 @@ public class SampleManager3D
                 break;
         }
 
+        foreach (string moduleName in adjacents[Dir.Up])
+        {
+            string name = moduleName[0..^1];
+            int currentModuleRotation = int.Parse(moduleName[^1..]);
+
+            int rotation = (currentModuleRotation + dirRotation) % 4;
+            if (rotation < 0)
+                rotation += 4;
+
+            rotatedAdjacents[Dir.Up].Add(name + rotation.ToString());
+        }
+
+        foreach (string moduleName in adjacents[Dir.Down])
+        {
+            string name = moduleName[0..^1];
+            int currentModuleRotation = int.Parse(moduleName[^1..]);
+
+            int rotation = (currentModuleRotation + dirRotation) % 4;
+            if (rotation < 0)
+                rotation += 4;
+
+            rotatedAdjacents[Dir.Down].Add(name + rotation.ToString());
+        }
+
+        
+
         return rotatedAdjacents;
     }
 
@@ -260,6 +295,11 @@ public class SampleManager3D
         adjacents.Add(Dir.Down, new List<string>());
 
         GameObject adjacentObject;
+
+        if (moduleName=="Ground_fassadecorner0")
+        {
+            Debug.Log("");
+        }
 
         foreach (GameObject sampleModule in sampleModules)
         {
@@ -499,10 +539,15 @@ public class SampleManager3D
     private GameObject FindObjectAtPosition(Vector3 position)
     {
         GameObject gameObject = null;
-        Collider[] colliders = Physics.OverlapSphere(position, 1f);
-
+        Collider[] colliders = Physics.OverlapSphere(position, 0.1f);
+       // Debug.Log(colliders.Length);
         if (colliders.Length > 0)
-            gameObject = colliders[0].gameObject;
+            if (colliders[0].gameObject.CompareTag(tag))
+                gameObject = colliders[0].gameObject;
+        if (colliders.Length > 1)
+        {
+            Debug.Log("big");
+        }   
 
         return gameObject;
     }

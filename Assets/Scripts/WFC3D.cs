@@ -7,6 +7,19 @@ public class WFC3D : MonoBehaviour
 {
     // Grid dimensions
     public int xSize, ySize, zSize;
+    public int height;
+
+    public string step1Tag;
+    public string step2Tag;
+
+    public float objectSize1;
+    public float objectSize2;
+
+    public float yOffset1;
+    public float yOffset2;
+
+    public float offset;
+    public float offset2;
 
     // Generates grid
     private GridManager gridManager;
@@ -16,8 +29,10 @@ public class WFC3D : MonoBehaviour
 
     // All module names
     private List<Tuple<string, int>> moduleTypes;
+    private List<Tuple<string, int>> overModuleTypes;
 
     List<Tuple<string, int>> edgeModuleTypes;
+    List<Tuple<string, int>> floorModuleTypes;
     private Dictionary<string, Tuple<GameObject, int>> gameObjects;
 
     // Module adjacency rules for each direction
@@ -37,27 +52,30 @@ public class WFC3D : MonoBehaviour
     private List<string> errorStates;
     private List<History3D> history;
 
+    bool done = false;
     // Use this for initialization
     void Start()
     {
         gridManager = new GridManager(xSize, ySize, zSize);
         blocks = gridManager.CreateGrid();
 
-        sampleManager = new SampleManager3D();
+        sampleManager = new SampleManager3D(step1Tag, objectSize1, yOffset1);
 
         rules = sampleManager.GenerateRulesFromSamples();
         gameObjects = sampleManager.GetObjects();
         moduleTypes = new List<Tuple<string, int>>();
+        overModuleTypes = new List<Tuple<string, int>>();
 
         foreach (var rule in rules)
             moduleTypes.Add(new(rule.Key, gameObjects[rule.Key[0..^1]].Item2));
 
-        
+
         modules = new Module[xSize, ySize, zSize];
         newModules = new Module[xSize, ySize, zSize];
 
         edgeModuleTypes = moduleTypes.Where(tuple => !tuple.Item1.Contains("ground")).ToList();
-        
+       
+
         foreach (var block in blocks)
         {
             int x = block.x;
@@ -65,9 +83,10 @@ public class WFC3D : MonoBehaviour
             int z = block.z;
 
             if ((x == 0 || x == blocks.GetLength(0) - 1 || z == 0 || z == blocks.GetLength(2) - 1) && y == 0)
-                modules[x, y, z] = new Module(new Vector3Int(x, y, z), edgeModuleTypes, true);
+                modules[x, y, z] = new Module(new Vector3Int(x, y, z), edgeModuleTypes, true, objectSize1, 0, 0);
+
             else
-                modules[x, y, z] = new Module(new Vector3Int(x, y, z), moduleTypes, false);
+                modules[x, y, z] = new Module(new Vector3Int(x, y, z), moduleTypes, false, objectSize1, 0, 0);
         }
 
         lowEntropyList = new List<Vector3Int>();
@@ -75,7 +94,7 @@ public class WFC3D : MonoBehaviour
         errorStates = new List<string>();
         history = new List<History3D>();
 
-        modules[0, 0, 0].CollapseTo("streetc1");
+        //modules[1, 0, 1].CollapseTo("Ground_fassadecorner0");
         UpdateValids();
 
 
@@ -114,25 +133,48 @@ public class WFC3D : MonoBehaviour
             if (!fertig)
             {
                 modules[currentCell.x, currentCell.y, currentCell.z].ResetModule();
-                errorStates.Add(CurrentState());
-
-                List<Vector3Int> cellAdjacents = GetCellAdjacents(currentCell);
-                History3D lastCollapsed = history
-                    .Where(history => cellAdjacents.Contains(history.Step.Item1))
-                    .LastOrDefault();
-
-                int lastCollapsedIndex = history.IndexOf(lastCollapsed);
-                LoadState(history[lastCollapsedIndex].CurrentState);
-                errorStates.Add(CurrentState());
-                foreach (Module module in modules)
+                if (!errorStates.Contains(CurrentState()))
                 {
-                    if (cellAdjacents.Contains(module.GetGridPosition()))
-                    {
-                        module.ResetModule();
-                    }
+                    errorStates.Add(CurrentState());
                 }
 
-                history.RemoveRange(lastCollapsedIndex, history.Count - lastCollapsedIndex);
+                Vector3Int lastHistoryCell = history[^1].Step.Item1;
+                modules[lastHistoryCell.x, lastHistoryCell.y, lastHistoryCell.z].ResetModule();
+                history.Remove(history[^1]);
+
+                //List<Vector3Int> cellAdjacents = GetCellAdjacents(currentCell);
+                //History3D lastCollapsed = history
+                //    .Where(history => cellAdjacents.Contains(history.Step.Item1))
+                //    .LastOrDefault();
+
+                //int lastCollapsedIndex = history.IndexOf(lastCollapsed);
+                //if (lastCollapsedIndex != -1)
+                //{
+                //    LoadState(history[lastCollapsedIndex].CurrentState);
+                //    history.RemoveRange(lastCollapsedIndex, history.Count - lastCollapsedIndex);
+                //    if (!errorStates.Contains(CurrentState()))
+                //    {
+                //        errorStates.Add(CurrentState());
+                //    }
+                //}
+                //else
+                //{
+                //    Debug.Log("Fehler");
+                //}
+
+
+                //foreach (Module module in modules)
+                //{
+                //    if (cellAdjacents.Contains(module.GetGridPosition()))
+                //    {
+                //        if (!module.IsEdge() || !CheckEdgeCollapsed())
+                //        {
+                //            module.ResetModule();
+                //        }
+
+                //    }
+                //}
+
             }
 
             UpdateValids();
@@ -141,6 +183,99 @@ public class WFC3D : MonoBehaviour
                 if (module.collapsed && module.model == null)
                     module.SetObject(gameObjects[module.GetTileType()[0..^1]].Item1);
         }
+
+        else
+        {
+            if (!done)
+            {
+                Debug.Log("step1");
+                int[,] grid = new int[xSize, zSize];
+
+                foreach (var module in modules)
+                {
+                    int x = module.GetGridPosition().x;
+                    int y = module.GetGridPosition().z;
+                    string type = module.GetTileType()[0..^1];
+
+                    if (type == "ground")
+                        grid[x, y] = 0;
+                    else
+                        grid[x, y] = 1;
+                }
+
+                int[,] dividedGrid = gridManager.DivideGrid(grid);
+
+                sampleManager = new SampleManager3D(step2Tag, objectSize2, yOffset2);
+                rules = sampleManager.GenerateRulesFromSamples();
+                gameObjects = sampleManager.GetObjects();
+                moduleTypes = new List<Tuple<string, int>>();
+
+
+
+                foreach (var rule in rules)
+                    moduleTypes.Add(new(rule.Key, gameObjects[rule.Key[0..^1]].Item2));
+
+                floorModuleTypes = new List<Tuple<string, int>>();
+
+                floorModuleTypes = moduleTypes.Where(tuple => (tuple.Item1.Contains("Ground") || tuple.Item1.Contains("empty"))).ToList();
+
+
+                overModuleTypes = moduleTypes.Where(tuple => !tuple.Item1.Contains("Ground")).ToList();
+
+                List<List<Vector2Int>> cellGroups = gridManager.FindEnclosedCellGroups(grid);
+
+                foreach (var group in cellGroups)
+                {
+                    foreach (var cell in group)
+                        modules[cell.x, 0, cell.y].ResetModule();
+                }
+
+
+                gridManager = new GridManager(dividedGrid.GetLength(0), height, dividedGrid.GetLength(1));
+                blocks = gridManager.CreateGrid();
+                modules = new Module[blocks.GetLength(0), blocks.GetLength(1), blocks.GetLength(2)];
+                newModules = new Module[blocks.GetLength(0), blocks.GetLength(1), blocks.GetLength(2)];
+
+                foreach (var block in blocks)
+                {
+                    int x = block.x;
+                    int y = block.y;
+                    int z = block.z;
+
+                    if (dividedGrid[x, z] == 1)
+                    {
+                        modules[x, y, z] = new Module(new Vector3Int(x, y, z), moduleTypes, true, objectSize2, offset, offset2);
+                        modules[x, y, z].CollapseTo("empty0");
+                    }
+                    else
+                    {
+                        if (y == 0)
+                        {
+                            modules[x, y, z] = new Module(new Vector3Int(x, y, z), floorModuleTypes, false, objectSize2, offset, offset2);
+                        }
+                        else if (y == blocks.GetLength(1) - 1)
+                        {
+                            modules[x, y, z] = new Module(new Vector3Int(x, y, z), moduleTypes, true, objectSize2, offset, offset2);
+                            modules[x, y, z].CollapseTo("empty0");
+                        }
+                        else
+                        {
+                            modules[x, y, z] = new Module(new Vector3Int(x, y, z), overModuleTypes, false, objectSize2, offset, offset2);
+                        }
+                    }
+                }
+
+                lowEntropyList = new List<Vector3Int>();
+
+                errorStates = new List<string>();
+                history = new List<History3D>();
+
+                //modules[4, 0, 4].CollapseTo("fassadecorner0");
+                UpdateValids();
+                done = true;
+            }
+        }
+
     }
 
     // Gets a list of blocks with the lowest entropy (number of valid modules)
@@ -214,7 +349,7 @@ public class WFC3D : MonoBehaviour
                     }
                     else
                     {
-                        options = moduleTypes.Select(tuple => tuple.Item1).ToList();
+                        options = modules[x, y, z].GetModuleTypes().Select(tuple => tuple.Item1).ToList();
                     }
 
                     if (x > 0)
@@ -295,6 +430,11 @@ public class WFC3D : MonoBehaviour
                         options = options.Intersect(valids).ToList();
                     }
 
+                    if (options.Count==0)
+                    { 
+                        Debug.Log("options=0");
+                    }
+
                     newModules[x, y, z].SetValidTypes(options);
                 }
             }
@@ -351,6 +491,14 @@ public class WFC3D : MonoBehaviour
         if (z < blocks.GetLength(2) - 1)
             if (modules[x, y, z + 1].IsCollapsed())
                 adjacents.Add(modules[x, y, z + 1].GetGridPosition());
+
+        if (y > 0)
+            if (modules[x, y - 1, z].IsCollapsed())
+                adjacents.Add(modules[x, y - 1, z].GetGridPosition());
+
+        if (y < blocks.GetLength(1) - 1)
+            if (modules[x, y + 1, z].IsCollapsed())
+                adjacents.Add(modules[x, y + 1, z].GetGridPosition());
 
         return adjacents;
     }

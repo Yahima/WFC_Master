@@ -12,9 +12,11 @@ public class Module
     public Dictionary<string, Dictionary<Dir, List<string>>> rules;
     public Vector3Int gridPosition;
     private bool isEdge;
+    private Vector3 factor;
+    private Vector3 offset;
     public GameObject model;
 
-    public Module(Vector3Int position, List<Tuple<string, int>> types, bool isEdge)
+    public Module(Vector3Int position, List<Tuple<string, int>> types, bool isEdge, float factor, float offset, float offset2)
     {
         collapsed = false;
         gridPosition = position;
@@ -25,7 +27,8 @@ public class Module
             validTypes.Add(data.Item1);
 
         this.isEdge = isEdge;
-
+        this.factor = new Vector3(factor, factor, factor);
+        this.offset = new Vector3(-offset, offset2, -offset);
         model = null;
     }
 
@@ -46,6 +49,7 @@ public class Module
 
         type = weightedTypesList[random.Next(0, weightedTypesList.Count - 1)];
         collapsed = true;
+        Debug.Log(type);
     }
 
     public void CollapseTo(string type)
@@ -110,7 +114,7 @@ public class Module
                 break;
         }
 
-        model = GameObject.Instantiate(obj, this.gridPosition * new Vector3Int(10, 10, 10), Quaternion.Euler(new Vector3(0, angle, 0)));
+        model = GameObject.Instantiate(obj, Vector3.Scale(gridPosition, factor) + offset, Quaternion.Euler(new Vector3(0, angle, 0)));
     }
 
     public List<string> GetValidTypes()
@@ -146,5 +150,10 @@ public class Module
     public bool IsEdge()
     {
         return isEdge;
+    }
+
+    public List<Tuple<string, int>> GetModuleTypes()
+    {
+        return typeData;
     }
 }
